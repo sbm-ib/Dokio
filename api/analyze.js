@@ -1,12 +1,3 @@
-import 'dotenv/config'
-import express from 'express'
-import cors from 'cors'
-
-const app = express()
-app.use(cors())
-app.use(express.json({ limit: '50mb' }))
-app.use(express.urlencoded({ limit: '50mb', extended: true }))
-
 const SYSTEM_PROMPT = `Tu es un expert en administration belge et française. Analyse ce document et réponds UNIQUEMENT avec ce JSON (aucun texte avant ou après) :
 {
   "organisme": "nom de l'organisme expéditeur (SPF Finances, CPAS, Mutualité, ONSS, SPW, etc.)",
@@ -24,8 +15,15 @@ RÈGLE ABSOLUE pour categorie — utilise UNIQUEMENT ces valeurs exactes, rien d
 - "autres"     → tout ce qui ne rentre pas dans les 3 catégories ci-dessus
 Contexte : SPF Finances = impôts, CPAS = aide sociale, Mutualité = assurance maladie, ONSS = cotisations sociales.`
 
-app.post('/api/analyze', async (req, res) => {
-  const { text } = req.body
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' })
+
+  const { text } = req.body ?? {}
 
   if (!text || text.trim().length < 10) {
     return res.status(400).json({ error: 'Texte trop court pour être analysé' })
@@ -33,7 +31,7 @@ app.post('/api/analyze', async (req, res) => {
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurée dans .env' })
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY non configurée' })
   }
 
   try {
@@ -67,33 +65,31 @@ app.post('/api/analyze', async (req, res) => {
     const match = content.match(/```json\s*([\s\S]*?)```/) ?? content.match(/(\{[\s\S]*\})/)
     if (!match) {
       console.error('[Anthropic] Pas de JSON:', content)
-      return res.status(500).json({ error: 'Réponse inattendue de l\'IA' })
+      return res.status(500).json({ error: "Réponse inattendue de l'IA" })
     }
 
     const result = JSON.parse(match[1] ?? match[0])
 
-    // Normalise la catégorie — l'IA retourne parfois des valeurs hors contrainte DB
     const VALID_CATEGORIES = ['courriers', 'factures', 'identite', 'autres']
     const raw = (result.categorie ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    const ALIASES = { courrier: 'courriers', facture: 'factures', identité: 'identite', identite: 'identite', autre: 'autres', contrat: 'courriers', salaire: 'factures', impot: 'factures', impôt: 'factures' }
+    const ALIASES = {
+      courrier: 'courriers', facture: 'factures',
+      identite: 'identite', identité: 'identite',
+      autre: 'autres', contrat: 'courriers',
+      salaire: 'factures', impot: 'factures', impôt: 'factures',
+    }
     result.categorie = VALID_CATEGORIES.includes(raw) ? raw : (ALIASES[raw] ?? 'autres')
 
     if (result.date_limite) {
-      const deadline = new Date(result.date_limite)
-      const now = new Date()
-      const diff = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      const diff = (new Date(result.date_limite).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       result.urgence = diff >= 0 && diff < 7
     } else {
       result.urgence = false
     }
 
-    res.json(result)
+    return res.status(200).json(result)
   } catch (err) {
-    console.error('[Serveur] Erreur:', err)
-    res.status(500).json({ error: err.message })
+    console.error('[Serverless] Erreur:', err)
+    return res.status(500).json({ error: err.message })
   }
-})
-
-app.listen(3001, () => {
-  console.log('Serveur Dokio API : http://localhost:3001')
-})
+}

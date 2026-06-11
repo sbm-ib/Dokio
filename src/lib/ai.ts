@@ -1,8 +1,7 @@
 import type { AIAnalysisResult } from '../types'
 
 export async function analyzeDocument(anonymizedText: string): Promise<AIAnalysisResult> {
-  const apiBase = `http://${window.location.hostname}:3001`
-  const response = await fetch(`${apiBase}/api/analyze`, {
+  const response = await fetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: anonymizedText }),
