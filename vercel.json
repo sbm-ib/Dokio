@@ -1,7 +1,10 @@
 {
   "functions": {
-    "api/analyze.js": {
+    "api/analyze.ts": {
       "maxDuration": 30
+    },
+    "api/health.ts": {
+      "maxDuration": 5
     }
   }
 }
