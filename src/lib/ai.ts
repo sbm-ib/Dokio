@@ -1,11 +1,16 @@
 import type { AIAnalysisResult } from '../types'
 
 export async function analyzeDocument(anonymizedText: string): Promise<AIAnalysisResult> {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: anonymizedText }),
-  })
+  let response: Response
+  try {
+    response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: anonymizedText }),
+    })
+  } catch {
+    throw new Error('Impossible de joindre le serveur — vérifie ta connexion internet.')
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: `Erreur ${response.status}` }))

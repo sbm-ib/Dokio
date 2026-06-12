@@ -10,6 +10,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
       manifest: {
         name: 'Dokio',
         short_name: 'Dokio',
