@@ -174,6 +174,13 @@ export default function Documents() {
   )
 }
 
+function getDocTitle(doc: Document): string {
+  if (doc.organisme_detecte) return doc.organisme_detecte
+  const name = doc.nom_fichier
+  if (/^\d+\.\w+$/.test(name)) return 'Document scanné'
+  return name.length > 35 ? name.slice(0, 35) + '…' : name
+}
+
 function DocumentCard({
   doc,
   deleting,
@@ -188,18 +195,16 @@ function DocumentCard({
   const days = doc.date_limite ? getDaysUntil(doc.date_limite) : null
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl shadow-sm p-5 pr-4 flex flex-col gap-3 hover:shadow-md transition-shadow overflow-hidden">
       {/* Top row */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-start justify-between gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
             <FileText size={16} className="text-gray-500" />
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{doc.nom_fichier}</p>
-            {doc.organisme_detecte && (
-              <p className="text-xs text-gray-400 truncate">{doc.organisme_detecte}</p>
-            )}
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p className="text-sm font-semibold text-gray-900 truncate whitespace-nowrap overflow-hidden max-w-full">{getDocTitle(doc)}</p>
+            <p className="text-xs text-gray-400 truncate">{formatDateShort(doc.created_at)}</p>
           </div>
         </div>
         <div className="flex gap-1.5 shrink-0">
@@ -216,7 +221,7 @@ function DocumentCard({
 
       {/* Explication */}
       {doc.explication_ia && (
-        <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{doc.explication_ia}</p>
+        <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 overflow-hidden">{doc.explication_ia}</p>
       )}
 
       {/* Action recommandée */}
