@@ -71,7 +71,7 @@ export default function Documents() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 max-w-[100vw] overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -175,10 +175,7 @@ export default function Documents() {
 }
 
 function getDocTitle(doc: Document): string {
-  if (doc.organisme_detecte) return doc.organisme_detecte
-  const name = doc.nom_fichier
-  if (/^\d+\.\w+$/.test(name)) return 'Document scanné'
-  return name.length > 35 ? name.slice(0, 35) + '…' : name
+  return doc.organisme_detecte || 'Document'
 }
 
 function DocumentCard({
@@ -195,7 +192,7 @@ function DocumentCard({
   const days = doc.date_limite ? getDaysUntil(doc.date_limite) : null
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-5 pr-4 flex flex-col gap-3 hover:shadow-md transition-shadow overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm p-5 pr-4 flex flex-col gap-3 hover:shadow-md transition-shadow overflow-hidden w-full" style={{ boxSizing: 'border-box' }}>
       {/* Top row */}
       <div className="flex items-start justify-between gap-2 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0 flex-1">
