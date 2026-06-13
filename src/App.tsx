@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Navbar from './components/Navbar'
@@ -25,19 +25,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user } = useAuth()
+  const location = useLocation()
 
   return (
     <div className="min-h-screen bg-gray-bg">
       <Navbar />
-      <Routes>
-        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-        <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-        <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
-        <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <div key={location.pathname} className="page-transition">
+        <Routes location={location}>
+          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+          <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+          <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
+          <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
     </div>
   )
 }
