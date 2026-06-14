@@ -20,9 +20,6 @@ export default function Profile() {
     ville: profile?.ville ?? '',
     pays: profile?.pays ?? 'belgique',
     notif_email: profile?.notif_email ?? false,
-    notif_frequence: profile?.notif_frequence ?? 'hebdo',
-    heure_rappel: profile?.heure_rappel ?? '09:00',
-    jours_avant_rappel: profile?.jours_avant_rappel ?? 3,
     date_rappel_exacte: (profile as any)?.date_rappel_exacte ?? '',
   })
 
@@ -115,92 +112,24 @@ export default function Profile() {
         {form.notif_email && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Fréquence</label>
-              <div className="flex gap-2">
-                {([
-                  ['immediat', 'Immédiat'],
-                  ['hebdo', 'Hebdomadaire'],
-                  ['jamais', 'Jamais'],
-                ] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => set('notif_frequence', val)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors min-h-[48px] ${
-                      form.notif_frequence === val
-                        ? 'bg-paperliss text-white border-paperliss'
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Heure de rappel</label>
-              <select
-                value={form.heure_rappel}
-                onChange={e => set('heure_rappel', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
-              >
-                {Array.from({ length: 13 }, (_, i) => i + 9).map(h => {
-                  const val = `${String(h).padStart(2, '0')}:00`
-                  return <option key={val} value={val}>{val}</option>
-                })}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Rappel relatif à la deadline</label>
-              <select
-                value={form.jours_avant_rappel}
-                onChange={e => { set('jours_avant_rappel', Number(e.target.value)); set('date_rappel_exacte', '') }}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
-              >
-                {[
-                  [0,  "Le jour même"],
-                  [1,  "1 jour avant"],
-                  [2,  "2 jours avant"],
-                  [3,  "3 jours avant"],
-                  [5,  "5 jours avant"],
-                  [7,  "1 semaine avant"],
-                  [14, "2 semaines avant"],
-                  [21, "3 semaines avant"],
-                  [30, "1 mois avant"],
-                ].map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs text-gray-400 shrink-0">ou choisir une date exacte</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date et année précises</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date et heure du rappel</label>
               <input
-                type="date"
+                type="datetime-local"
                 value={form.date_rappel_exacte}
                 onChange={e => set('date_rappel_exacte', e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
               />
-              {form.date_rappel_exacte && (
-                <p className="text-xs text-gray-400 mt-1">
-                  Rappel fixé au {new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              )}
             </div>
 
-            <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium">
-              {form.date_rappel_exacte
-                ? `✓ Rappel fixé au ${new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} à ${form.heure_rappel}`
-                : `✓ Rappel ${form.jours_avant_rappel === 0 ? 'le jour même' : `${form.jours_avant_rappel} jour${form.jours_avant_rappel > 1 ? 's' : ''} avant`} à ${form.heure_rappel}`
-              }
-            </div>
+            {form.date_rappel_exacte && (
+              <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium">
+                ✓ Rappel prévu le {new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', {
+                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                })} à {new Date(form.date_rappel_exacte).toLocaleTimeString('fr-FR', {
+                  hour: '2-digit', minute: '2-digit',
+                })}
+              </div>
+            )}
           </div>
         )}
       </Section>
