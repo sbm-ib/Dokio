@@ -20,6 +20,8 @@ export default function Profile() {
     ville: profile?.ville ?? '',
     pays: profile?.pays ?? 'belgique',
     notif_email: profile?.notif_email ?? false,
+    notif_hebdo: profile?.notif_frequence === 'hebdo',
+    heure_rappel: profile?.heure_rappel ?? '09:00',
     date_rappel_exacte: (profile as any)?.date_rappel_exacte ?? '',
   })
 
@@ -111,6 +113,49 @@ export default function Profile() {
         </div>
         {form.notif_email && (
           <div className="space-y-4">
+
+            {/* Toggle hebdomadaire */}
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Rappels hebdomadaires</p>
+                <p className="text-xs text-gray-400 mt-0.5">Reçois un récap chaque semaine</p>
+              </div>
+              <button
+                onClick={() => set('notif_hebdo', !form.notif_hebdo)}
+                className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${form.notif_hebdo ? 'bg-paperliss' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.notif_hebdo ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            {/* Heure — visible seulement si hebdo activé */}
+            {form.notif_hebdo && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Heure du rappel hebdomadaire</label>
+                <select
+                  value={form.heure_rappel}
+                  onChange={e => set('heure_rappel', e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
+                >
+                  {Array.from({ length: 15 }, (_, i) => i + 7).map(h => {
+                    const val = `${String(h).padStart(2, '0')}:00`
+                    return <option key={val} value={val}>{val}</option>
+                  })}
+                </select>
+                <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium mt-3">
+                  ✓ Rappel hebdomadaire chaque semaine à {form.heure_rappel}
+                </div>
+              </div>
+            )}
+
+            {/* Séparateur */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-100" />
+              <span className="text-xs text-gray-400 shrink-0">rappel à une date précise</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+
+            {/* Date + heure exacte */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Date et heure du rappel</label>
               <input
@@ -123,11 +168,9 @@ export default function Profile() {
 
             {form.date_rappel_exacte && (
               <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium">
-                ✓ Rappel prévu le {new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', {
+                ✓ Rappel le {new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', {
                   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-                })} à {new Date(form.date_rappel_exacte).toLocaleTimeString('fr-FR', {
-                  hour: '2-digit', minute: '2-digit',
-                })}
+                })} à {new Date(form.date_rappel_exacte).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
               </div>
             )}
           </div>
