@@ -9,9 +9,11 @@ export function useProfile() {
     if (!profile) return
     const { error } = await supabase
       .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', profile.id)
-    if (error) throw error
+      .upsert({ id: profile.id, ...updates, updated_at: new Date().toISOString() })
+    if (error) {
+      console.error('[Supabase] updateProfile error:', error)
+      throw error
+    }
     await refreshProfile()
   }
 
