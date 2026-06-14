@@ -31,9 +31,21 @@ export default function Profile() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await updateProfile(form)
+      await updateProfile({
+        prenom: form.prenom || null,
+        nom: form.nom || null,
+        adresse: form.adresse || null,
+        code_postal: form.code_postal || null,
+        ville: form.ville || null,
+        pays: form.pays,
+        notif_email: form.notif_email,
+        notif_frequence: form.notif_hebdo ? 'hebdo' : 'jamais',
+        heure_rappel: form.heure_rappel,
+        date_rappel_exacte: form.date_rappel_exacte || null,
+      })
       toast.success('Profil mis à jour !')
-    } catch {
+    } catch (err) {
+      console.error('[Profile] save error:', err)
       toast.error('Oups, impossible de sauvegarder. Réessaie !')
     } finally {
       setSaving(false)

@@ -13,6 +13,7 @@ export interface Profile {
   notif_frequence: 'immediat' | 'hebdo' | 'jamais'
   heure_rappel: string
   jours_avant_rappel: number
+  date_rappel_exacte: string | null
   created_at: string
   updated_at: string
 }
