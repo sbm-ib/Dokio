@@ -5,6 +5,9 @@
     },
     "api/health.ts": {
       "maxDuration": 5
+    },
+    "api/send-push.ts": {
+      "maxDuration": 30
     }
   }
 }

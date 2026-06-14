@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   heure_rappel        text NOT NULL DEFAULT '09:00',
   jours_avant_rappel  integer NOT NULL DEFAULT 3,
   date_rappel_exacte  text,
+  expo_push_token     text,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
