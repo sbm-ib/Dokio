@@ -23,6 +23,7 @@ export default function Profile() {
     notif_frequence: profile?.notif_frequence ?? 'hebdo',
     heure_rappel: profile?.heure_rappel ?? '09:00',
     jours_avant_rappel: profile?.jours_avant_rappel ?? 3,
+    date_rappel_exacte: (profile as any)?.date_rappel_exacte ?? '',
   })
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -151,10 +152,10 @@ export default function Profile() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Combien de jours avant la deadline ?</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Rappel relatif à la deadline</label>
               <select
                 value={form.jours_avant_rappel}
-                onChange={e => set('jours_avant_rappel', Number(e.target.value))}
+                onChange={e => { set('jours_avant_rappel', Number(e.target.value)); set('date_rappel_exacte', '') }}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
               >
                 {[
@@ -173,8 +174,32 @@ export default function Profile() {
               </select>
             </div>
 
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400 shrink-0">ou choisir une date exacte</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date et année précises</label>
+              <input
+                type="date"
+                value={form.date_rappel_exacte}
+                onChange={e => set('date_rappel_exacte', e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
+              />
+              {form.date_rappel_exacte && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Rappel fixé au {new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+
             <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium">
-              ✓ Tes rappels sont configurés pour {form.jours_avant_rappel} jour{form.jours_avant_rappel > 1 ? 's' : ''} avant, à {form.heure_rappel}
+              {form.date_rappel_exacte
+                ? `✓ Rappel fixé au ${new Date(form.date_rappel_exacte).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} à ${form.heure_rappel}`
+                : `✓ Rappel ${form.jours_avant_rappel === 0 ? 'le jour même' : `${form.jours_avant_rappel} jour${form.jours_avant_rappel > 1 ? 's' : ''} avant`} à ${form.heure_rappel}`
+              }
             </div>
           </div>
         )}
