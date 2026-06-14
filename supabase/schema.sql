@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   analyses_reset_date timestamptz,
   notif_email         boolean NOT NULL DEFAULT false,
   notif_frequence     text NOT NULL DEFAULT 'hebdo' CHECK (notif_frequence IN ('immediat', 'hebdo', 'jamais')),
+  heure_rappel        text NOT NULL DEFAULT '09:00',
+  jours_avant_rappel  integer NOT NULL DEFAULT 3,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );

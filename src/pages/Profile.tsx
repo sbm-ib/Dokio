@@ -21,6 +21,8 @@ export default function Profile() {
     pays: profile?.pays ?? 'belgique',
     notif_email: profile?.notif_email ?? false,
     notif_frequence: profile?.notif_frequence ?? 'hebdo',
+    heure_rappel: profile?.heure_rappel ?? '09:00',
+    jours_avant_rappel: profile?.jours_avant_rappel ?? 3,
   })
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -110,26 +112,65 @@ export default function Profile() {
           </button>
         </div>
         {form.notif_email && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fréquence</label>
-            <div className="flex gap-2">
-              {([
-                ['immediat', 'Immédiat'],
-                ['hebdo', 'Hebdomadaire'],
-                ['jamais', 'Jamais'],
-              ] as const).map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => set('notif_frequence', val)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors min-h-[48px] ${
-                    form.notif_frequence === val
-                      ? 'bg-paperliss text-white border-paperliss'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Fréquence</label>
+              <div className="flex gap-2">
+                {([
+                  ['immediat', 'Immédiat'],
+                  ['hebdo', 'Hebdomadaire'],
+                  ['jamais', 'Jamais'],
+                ] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => set('notif_frequence', val)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors min-h-[48px] ${
+                      form.notif_frequence === val
+                        ? 'bg-paperliss text-white border-paperliss'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Heure de rappel</label>
+              <select
+                value={form.heure_rappel}
+                onChange={e => set('heure_rappel', e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
+              >
+                {Array.from({ length: 13 }, (_, i) => i + 9).map(h => {
+                  const val = `${String(h).padStart(2, '0')}:00`
+                  return <option key={val} value={val}>{val}</option>
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Combien de jours avant la deadline ?</label>
+              <div className="flex gap-2">
+                {([1, 3, 7] as const).map(j => (
+                  <button
+                    key={j}
+                    onClick={() => set('jours_avant_rappel', j)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors min-h-[48px] ${
+                      form.jours_avant_rappel === j
+                        ? 'bg-paperliss text-white border-paperliss'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {j} jour{j > 1 ? 's' : ''} avant
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium">
+              ✓ Tes rappels sont configurés pour {form.jours_avant_rappel} jour{form.jours_avant_rappel > 1 ? 's' : ''} avant, à {form.heure_rappel}
             </div>
           </div>
         )}

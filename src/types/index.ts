@@ -11,6 +11,8 @@ export interface Profile {
   analyses_reset_date: string | null
   notif_email: boolean
   notif_frequence: 'immediat' | 'hebdo' | 'jamais'
+  heure_rappel: string
+  jours_avant_rappel: number
   created_at: string
   updated_at: string
 }
