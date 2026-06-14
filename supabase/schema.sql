@@ -63,6 +63,7 @@ ALTER TABLE public.rappels   ENABLE ROW LEVEL SECURITY;
 
 -- Profiles : un user ne voit que son propre profil
 CREATE POLICY "profiles: lecture propre"  ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "profiles: insertion"       ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles: mise à jour"     ON public.profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "profiles: suppression"     ON public.profiles FOR DELETE USING (auth.uid() = id);
 
