@@ -152,21 +152,25 @@ export default function Profile() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Combien de jours avant la deadline ?</label>
-              <div className="flex gap-2">
-                {([1, 3, 7] as const).map(j => (
-                  <button
-                    key={j}
-                    onClick={() => set('jours_avant_rappel', j)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors min-h-[48px] ${
-                      form.jours_avant_rappel === j
-                        ? 'bg-paperliss text-white border-paperliss'
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {j} jour{j > 1 ? 's' : ''} avant
-                  </button>
+              <select
+                value={form.jours_avant_rappel}
+                onChange={e => set('jours_avant_rappel', Number(e.target.value))}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition min-h-[44px]"
+              >
+                {[
+                  [0,  "Le jour même"],
+                  [1,  "1 jour avant"],
+                  [2,  "2 jours avant"],
+                  [3,  "3 jours avant"],
+                  [5,  "5 jours avant"],
+                  [7,  "1 semaine avant"],
+                  [14, "2 semaines avant"],
+                  [21, "3 semaines avant"],
+                  [30, "1 mois avant"],
+                ].map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
             <div className="bg-paperliss-light rounded-xl px-4 py-3 text-sm text-paperliss font-medium">
