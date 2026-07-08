@@ -14,6 +14,8 @@ export interface Profile {
   heure_rappel: string
   jours_avant_rappel: number
   date_rappel_exacte: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
   created_at: string
   updated_at: string
 }
@@ -43,6 +45,18 @@ export interface Rappel {
   message: string
   envoye: boolean
   created_at: string
+}
+
+export interface RadarPriorite {
+  titre: string
+  description: string
+  urgence: 'haute' | 'moyenne' | 'basse'
+  document_ids: string[]
+}
+
+export interface RadarData {
+  resume: string
+  priorites: RadarPriorite[]
 }
 
 export interface AIAnalysisResult {

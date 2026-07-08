@@ -1,16 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { User, MapPin, Bell, CreditCard, Trash2, Save, Loader2, Star, Globe } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { useAuth } from '../hooks/useAuth'
 import toast from 'react-hot-toast'
-
-const STRIPE_PREMIUM = 'https://buy.stripe.com/REMPLACE_PREMIUM'
 
 export default function Profile() {
   const { profile, updateProfile, deleteAllData } = useProfile()
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    const checkout = searchParams.get('checkout')
+    if (checkout === 'success') toast.success('Bienvenue dans Premium !')
+    if (checkout === 'cancel') toast('Paiement annulé — tu peux réessayer quand tu veux.')
+    if (checkout) {
+      searchParams.delete('checkout')
+      setSearchParams(searchParams, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [form, setForm] = useState({
     prenom: profile?.prenom ?? '',
@@ -49,6 +62,44 @@ export default function Profile() {
       toast.error('Oups, impossible de sauvegarder. Réessaie !')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleUpgrade = async () => {
+    if (!user?.id || !user.email) return
+    setCheckoutLoading(true)
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, email: user.email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
+      window.location.href = data.url
+    } catch (err) {
+      console.error('[Profile] checkout error:', err)
+      toast.error('Oups, impossible de lancer le paiement. Réessaie !')
+      setCheckoutLoading(false)
+    }
+  }
+
+  const handleManageSubscription = async () => {
+    if (!profile?.stripe_customer_id) return
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: profile.stripe_customer_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
+      window.location.href = data.url
+    } catch (err) {
+      console.error('[Profile] portal error:', err)
+      toast.error('Oups, impossible d\'ouvrir la gestion d\'abonnement. Réessaie !')
+      setPortalLoading(false)
     }
   }
 
@@ -217,14 +268,24 @@ export default function Profile() {
             </div>
           </div>
           {profile?.plan === 'gratuit' && (
-            <a
-              href={STRIPE_PREMIUM}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-paperliss hover:bg-paperliss-dark text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors min-h-[48px] flex items-center"
+            <button
+              onClick={handleUpgrade}
+              disabled={checkoutLoading}
+              className="bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors min-h-[48px] flex items-center gap-2"
             >
+              {checkoutLoading && <Loader2 size={14} className="animate-spin" />}
               Passer Premium
-            </a>
+            </button>
+          )}
+          {profile?.plan === 'premium' && profile.stripe_customer_id && (
+            <button
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+              className="bg-white border border-gray-200 hover:border-gray-300 disabled:opacity-60 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors min-h-[48px] flex items-center gap-2"
+            >
+              {portalLoading && <Loader2 size={14} className="animate-spin" />}
+              Gérer mon abonnement
+            </button>
           )}
         </div>
       </Section>

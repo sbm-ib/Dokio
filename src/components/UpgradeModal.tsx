@@ -1,13 +1,45 @@
-import { X, Zap, Check } from 'lucide-react'
-
-const STRIPE_PREMIUM = 'https://buy.stripe.com/REMPLACE_PAR_TON_LIEN_PREMIUM'
+import { useState } from 'react'
+import { X, Zap, Check, Loader2 } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import toast from 'react-hot-toast'
 
 interface Props {
   onClose: () => void
   remaining?: number
+  badgeLabel?: string
+  title?: string
+  description?: string
 }
 
-export default function UpgradeModal({ onClose, remaining = 0 }: Props) {
+export default function UpgradeModal({
+  onClose,
+  remaining = 0,
+  badgeLabel = 'Limite atteinte',
+  title = 'Passe à Premium',
+  description,
+}: Props) {
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(false)
+
+  const handleUpgrade = async () => {
+    if (!user?.id || !user.email) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, email: user.email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
+      window.location.href = data.url
+    } catch (err) {
+      console.error('[UpgradeModal] checkout error:', err)
+      toast.error('Oups, impossible de lancer le paiement. Réessaie !')
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -15,13 +47,13 @@ export default function UpgradeModal({ onClose, remaining = 0 }: Props) {
           <div>
             <div className="flex items-center gap-1.5 text-warning font-semibold text-sm mb-1">
               <Zap size={15} />
-              Limite atteinte
+              {badgeLabel}
             </div>
-            <h2 className="text-lg font-bold text-gray-900">Passe à Premium</h2>
+            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {remaining === 0
+              {description ?? (remaining === 0
                 ? 'Tu as épuisé tes 3 analyses gratuites ce mois-ci.'
-                : `Il te reste ${remaining} analyse(s) ce mois.`}
+                : `Il te reste ${remaining} analyse(s) ce mois.`)}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
@@ -50,14 +82,14 @@ export default function UpgradeModal({ onClose, remaining = 0 }: Props) {
               </li>
             ))}
           </ul>
-          <a
-            href={STRIPE_PREMIUM}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full bg-paperliss hover:bg-paperliss-dark text-white text-center py-3 rounded-xl text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center"
+          <button
+            onClick={handleUpgrade}
+            disabled={loading}
+            className="w-full bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white text-center py-3 rounded-xl text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center gap-2"
           >
+            {loading && <Loader2 size={15} className="animate-spin" />}
             Passer à Premium — 4,99 €/mois
-          </a>
+          </button>
         </div>
 
         <button

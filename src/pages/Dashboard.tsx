@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, AlertTriangle, Calendar, Plus, ChevronRight, Clock, FolderOpen } from 'lucide-react'
+import { FileText, AlertTriangle, Calendar, Plus, ChevronRight, Clock, FolderOpen, Radar as RadarIcon } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useDocuments } from '../hooks/useDocuments'
+import { useRadar } from '../hooks/useRadar'
+import UpgradeModal from '../components/UpgradeModal'
 import {
   CATEGORIE_LABELS, CATEGORIE_COLORS, STATUT_COLORS, STATUT_LABELS,
   getDaysUntil, deadlineColor, deadlineBg, formatDate, formatDateShort,
 } from '../lib/utils'
-import type { Document } from '../types'
+import type { Document, RadarPriorite } from '../types'
 
 function getDocLabel(doc: Document): string {
   if (doc.organisme_detecte) {
@@ -16,12 +19,38 @@ function getDocLabel(doc: Document): string {
   return `Document du ${formatDateShort(doc.created_at)}`
 }
 
+const URGENCE_STYLES: Record<RadarPriorite['urgence'], string> = {
+  haute: 'bg-danger-light text-danger',
+  moyenne: 'bg-warning-light text-warning',
+  basse: 'bg-gray-100 text-gray-500',
+}
+
+function PrioriteCard({ priorite }: { priorite: RadarPriorite }) {
+  return (
+    <div className="rounded-xl border border-gray-100 p-3">
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <p className="text-sm font-semibold text-gray-900">{priorite.titre}</p>
+        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${URGENCE_STYLES[priorite.urgence]}`}>
+          {priorite.urgence}
+        </span>
+      </div>
+      <p className="text-xs text-gray-500">{priorite.description}</p>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { profile } = useAuth()
   const { documents, loading, thisMonthDeadlines, urgentCount, upcomingDeadlines, recentDocuments } = useDocuments()
+  const { data: radarData, loading: radarLoading } = useRadar(documents.length)
+  const [showUpgrade, setShowUpgrade] = useState(false)
   const navigate = useNavigate()
 
   const prenom = profile?.prenom ?? 'toi'
+  const isPremium = profile?.plan === 'premium'
+  const visibleLimit = isPremium ? Infinity : 2
+  const visiblePriorites = radarData?.priorites.slice(0, visibleLimit) ?? []
+  const hiddenPriorites = radarData?.priorites.slice(visibleLimit) ?? []
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -53,6 +82,59 @@ export default function Dashboard() {
           alert={urgentCount > 0}
         />
       </div>
+
+      {/* Radar */}
+      {documents.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm p-4 mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <RadarIcon size={18} className="text-paperliss" />
+            <h2 className="font-bold text-gray-900">Radar</h2>
+          </div>
+
+          {radarLoading ? (
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />
+              <div className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            </div>
+          ) : radarData && (radarData.resume || radarData.priorites.length > 0) ? (
+            <>
+              {radarData.resume && (
+                <p className="text-sm text-gray-600 mb-4">{radarData.resume}</p>
+              )}
+              <div className="space-y-2">
+                {visiblePriorites.map((p, i) => <PrioriteCard key={i} priorite={p} />)}
+
+                {hiddenPriorites.length > 0 && (
+                  <div className="relative">
+                    <div className="space-y-2 blur-sm pointer-events-none select-none">
+                      {hiddenPriorites.map((p, i) => <PrioriteCard key={i} priorite={p} />)}
+                    </div>
+                    <button
+                      onClick={() => setShowUpgrade(true)}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <span className="bg-paperliss hover:bg-paperliss-dark text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-lg transition-colors">
+                        Débloquer {hiddenPriorites.length} priorité{hiddenPriorites.length > 1 ? 's' : ''} de plus
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-6">Rien à signaler pour l'instant.</p>
+          )}
+        </div>
+      )}
+
+      {showUpgrade && (
+        <UpgradeModal
+          onClose={() => setShowUpgrade(false)}
+          badgeLabel="Radar"
+          title="Débloque toutes tes priorités"
+          description="Le plan gratuit ne montre que les 2 priorités principales. Passe à Premium pour voir l'analyse complète du Radar."
+        />
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Documents récents */}

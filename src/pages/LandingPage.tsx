@@ -68,8 +68,9 @@ export default function LandingPage() {
   const navigate = useNavigate()
 
   const handlePlan = (action: string) => {
-    if (action === 'register') navigate('/auth')
-    else if (action === 'stripe-premium') window.open('https://buy.stripe.com/REMPLACE_PREMIUM', '_blank')
+    // L'achat Premium nécessite un compte (client_reference_id du checkout Stripe) —
+    // on inscrit d'abord, l'achat réel se fait depuis /profil une fois connecté.
+    if (action === 'register' || action === 'stripe-premium') navigate('/auth')
   }
 
   return (
