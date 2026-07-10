@@ -49,8 +49,12 @@ CREATE TABLE IF NOT EXISTS public.documents (
   action_recommandee  text,
   organisme_detecte   text,
   lien_officiel       text,
+  montant_eur         numeric,
   created_at          timestamptz NOT NULL DEFAULT now()
 );
+
+-- Si la table existait déjà avant l'ajout du montant (feature Radar), colle ceci dans l'éditeur SQL Supabase :
+-- ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS montant_eur numeric;
 
 -- ── Table rappels ──
 CREATE TABLE IF NOT EXISTS public.rappels (

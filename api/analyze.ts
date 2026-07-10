@@ -6,7 +6,8 @@ const SYSTEM_PROMPT = `Tu es un expert en administration belge et française. An
   "action_recommandee": "ce que l'utilisateur doit faire concrètement",
   "date_limite": "YYYY-MM-DD si trouvée, sinon null",
   "urgence": false,
-  "lien_officiel": "URL officielle si applicable, sinon null"
+  "lien_officiel": "URL officielle si applicable, sinon null",
+  "montant_eur": "montant en euros mentionné dans le document (à payer OU à recevoir), en nombre (ex: 149.90), sinon null — n'invente jamais un montant absent du texte"
 }
 RÈGLE ABSOLUE pour categorie — utilise UNIQUEMENT ces valeurs exactes, rien d'autre :
 - "courriers"  → lettres officielles, convocations, notifications, contrats
@@ -92,6 +93,9 @@ export default async function handler(req: any, res: any): Promise<void> {
     } else {
       result.urgence = false
     }
+
+    const montant = typeof result.montant_eur === 'string' ? parseFloat(result.montant_eur) : result.montant_eur
+    result.montant_eur = typeof montant === 'number' && !isNaN(montant) ? montant : null
 
     res.status(200).json(result)
   } catch (err: any) {

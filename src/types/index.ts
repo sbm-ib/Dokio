@@ -34,6 +34,7 @@ export interface Document {
   action_recommandee: string | null
   organisme_detecte: string | null
   lien_officiel: string | null
+  montant_eur: number | null
   created_at: string
 }
 
@@ -47,16 +48,43 @@ export interface Rappel {
   created_at: string
 }
 
-export interface RadarPriorite {
+export interface RadarArgentDetail {
+  libelle: string
+  montant_eur: number
+  source?: string
+  raison?: string
+}
+
+export interface RadarArgent {
+  total_estime_eur: number
+  details: RadarArgentDetail[]
+}
+
+export interface RadarAction {
   titre: string
-  description: string
+  pourquoi: string
   urgence: 'haute' | 'moyenne' | 'basse'
-  document_ids: string[]
+  echeance: string | null
+}
+
+export interface RadarAnticipation {
+  attendu: string
+  quand: string
+  si_rien_alors: string
+}
+
+export interface RadarConnexion {
+  documents: string[]
+  lien: string
 }
 
 export interface RadarData {
-  resume: string
-  priorites: RadarPriorite[]
+  argent_qui_rentre: RadarArgent
+  argent_en_danger: RadarArgent
+  actions_semaine: RadarAction[]
+  anticipations: RadarAnticipation[]
+  connexions: RadarConnexion[]
+  resume_situation: string
 }
 
 export interface AIAnalysisResult {
@@ -67,4 +95,5 @@ export interface AIAnalysisResult {
   date_limite: string | null
   urgence: boolean
   lien_officiel: string | null
+  montant_eur: number | null
 }

@@ -5,24 +5,46 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const SYSTEM_PROMPT = `Tu es un expert en administration belge et française. On te donne la liste de TOUS les documents administratifs d'un utilisateur (déjà analysés individuellement). Ton rôle : croiser ces documents pour faire ressortir ce qui compte vraiment — échéances qui se chevauchent, factures impayées qui s'accumulent, documents liés entre eux, urgences à ne pas manquer.
+const SYSTEM_PROMPT = `Tu es l'assistant administratif de Dokio, spécialisé dans l'administration BELGE (Wallonie-Bruxelles). On te donne l'ensemble des documents administratifs d'un utilisateur (déjà résumés). Ta mission : produire une synthèse GLOBALE de sa situation en raisonnant sur TOUS les documents ensemble, pas un par un.
 
-Réponds UNIQUEMENT avec ce JSON (aucun texte avant ou après) :
+Utilise le vocabulaire belge : CPAS, mutualité, ONSS, SPF Finances, allocations familiales, prime énergie, tarif social, Justice de Paix, Fédération Wallonie-Bruxelles, etc.
+
+Analyse et déduis :
+1. L'argent qui doit RENTRER (allocations, remboursements, versements attendus).
+2. L'argent en DANGER (pénalités, majorations, délais bientôt dépassés).
+3. Les ACTIONS concrètes à faire, triées par urgence (la plus urgente d'abord).
+4. Les ANTICIPATIONS : ce qui va logiquement arriver ensuite et quand agir si ça n'arrive pas.
+5. Les CONNEXIONS entre documents.
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, sans balises Markdown. Format exact :
+
 {
-  "resume": "2-3 phrases résumant la situation administrative globale de l'utilisateur, comme à un ami",
-  "priorites": [
-    {
-      "titre": "titre court de la priorité",
-      "description": "1-2 phrases expliquant pourquoi c'est important et quoi faire",
-      "urgence": "haute" | "moyenne" | "basse",
-      "document_ids": ["uuid des documents concernés"]
-    }
-  ]
+  "argent_qui_rentre": { "total_estime_eur": number, "details": [ { "libelle": string, "montant_eur": number, "source": string } ] },
+  "argent_en_danger": { "total_estime_eur": number, "details": [ { "libelle": string, "montant_eur": number, "raison": string } ] },
+  "actions_semaine": [ { "titre": string, "pourquoi": string, "urgence": "haute" | "moyenne" | "basse", "echeance": string | null } ],
+  "anticipations": [ { "attendu": string, "quand": string, "si_rien_alors": string } ],
+  "connexions": [ { "documents": [string], "lien": string } ],
+  "resume_situation": string
 }
-RÈGLES :
-- Trie "priorites" de la plus urgente à la moins urgente.
-- Si rien n'est urgent, "priorites" peut être une liste courte de simples recommandations utiles.
-- "document_ids" doit contenir uniquement des ids présents dans la liste fournie.`
+
+Chaque document fourni peut contenir un champ "montant_eur" déjà extrait du texte original : utilise-le en priorité pour tes calculs. Si une information n'est pas déductible, mets une valeur nulle ou un tableau vide. N'invente jamais de montant absent des documents : si tu n'es pas sûr, laisse à 0 et explique dans le libellé.`
+
+function parseRadarJson(content: string): unknown {
+  const cleaned = content
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/, '')
+    .replace(/```\s*$/, '')
+    .trim()
+
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/)
+    if (!match) throw new Error("Réponse inattendue de l'IA (pas de JSON trouvé)")
+    return JSON.parse(match[0])
+  }
+}
 
 export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -40,17 +62,26 @@ export default async function handler(req: any, res: any): Promise<void> {
     return
   }
 
+  const emptyData = {
+    argent_qui_rentre: { total_estime_eur: 0, details: [] },
+    argent_en_danger: { total_estime_eur: 0, details: [] },
+    actions_semaine: [],
+    anticipations: [],
+    connexions: [],
+    resume_situation: '',
+  }
+
   try {
     const { data: documents, error: docsError } = await supabase
       .from('documents')
-      .select('id, organisme_detecte, categorie, explication_ia, action_recommandee, date_limite, urgence, statut, created_at')
+      .select('id, organisme_detecte, categorie, explication_ia, action_recommandee, date_limite, urgence, statut, montant_eur, created_at')
       .eq('user_id', userId)
       .neq('statut', 'archive')
 
     if (docsError) throw docsError
 
     if (!documents || documents.length === 0) {
-      res.status(200).json({ data: { resume: '', priorites: [] }, documents_count: 0 })
+      res.status(200).json({ data: emptyData, documents_count: 0 })
       return
     }
 
@@ -82,7 +113,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: `Documents à analyser :\n\n${JSON.stringify(documents)}` }],
       }),
@@ -98,14 +129,14 @@ export default async function handler(req: any, res: any): Promise<void> {
     const upstreamData = await upstream.json()
     const content: string = upstreamData?.content?.[0]?.text ?? ''
 
-    const match = content.match(/```json\s*([\s\S]*?)```/) ?? content.match(/(\{[\s\S]*\})/)
-    if (!match) {
-      console.error('[radar] Pas de JSON:', content)
-      res.status(500).json({ error: "Réponse inattendue de l'IA" })
+    let radarData: unknown
+    try {
+      radarData = parseRadarJson(content)
+    } catch (parseErr: any) {
+      console.error('[radar] Échec de parsing JSON. Réponse brute Claude:', content)
+      res.status(500).json({ error: `Réponse IA invalide: ${parseErr?.message ?? parseErr}` })
       return
     }
-
-    const radarData = JSON.parse(match[1] ?? match[0])
 
     await supabase.from('radar_snapshots').delete().eq('user_id', userId)
     await supabase.from('radar_snapshots').insert({

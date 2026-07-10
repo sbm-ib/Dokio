@@ -155,6 +155,7 @@ export default function Scanner() {
         action_recommandee: analysis.action_recommandee,
         organisme_detecte: analysis.organisme,
         lien_officiel: analysis.lien_officiel,
+        montant_eur: analysis.montant_eur,
       })
 
       if (dbErr) throw new Error(dbErr.message)
