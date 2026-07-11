@@ -285,17 +285,23 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {upcomingDeadlines.map(doc => {
                   const days = getDaysUntil(doc.date_limite!)
+                  // Les fonds bg-danger-light/warning-light/success-light restent clairs
+                  // même en mode sombre (pas de variante dark définie) — le texte doit
+                  // donc rester foncé dans les deux thèmes pour cette carte-là.
+                  // Au-delà de 30 jours, deadlineBg() retombe sur bg-gray-50, qui lui
+                  // suit bien le thème sombre — donc pas de couleur figée dans ce cas.
+                  const isTinted = days <= 30
                   return (
                     <div key={doc.id} className={`rounded-xl border p-3 overflow-hidden ${deadlineBg(days)}`}>
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-sm font-semibold text-gray-900 leading-snug truncate min-w-0">
+                        <p className={`text-sm font-semibold leading-snug truncate min-w-0 ${isTinted ? 'text-slate-900' : 'text-gray-900'}`}>
                           {getDocLabel(doc)}
                         </p>
                         <span className={`text-xs font-bold shrink-0 ${deadlineColor(days)}`}>
                           {days === 0 ? "Auj." : days < 0 ? 'Passée' : `J-${days}`}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <div className={`flex items-center gap-1 text-xs ${isTinted ? 'text-slate-500' : 'text-gray-500'}`}>
                         <Clock size={11} />
                         {formatDate(doc.date_limite!)}
                       </div>

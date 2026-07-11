@@ -266,8 +266,8 @@ export default function Scanner() {
                     </div>
                   )
                 }
-                <p className="text-sm font-semibold text-gray-900">{file.name}</p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-sm font-semibold text-slate-900">{file.name}</p>
+                <p className="text-xs text-slate-500 mt-1">
                   {getFileLabel(file)} · {(file.size / 1024 / 1024).toFixed(2)} Mo
                 </p>
               </div>
