@@ -7,6 +7,8 @@
   ],
   "compilerOptions": {
     "types": ["node"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "module": "esnext",
+    "moduleResolution": "bundler"
   }
 }
