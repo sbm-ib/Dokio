@@ -1,16 +1,11 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from './_supabase'
 
 export const config = {
   api: {
     bodyParser: false,
   },
 }
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
 
 function readRawBody(req: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -45,6 +40,8 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   try {
+    const supabase = getSupabaseAdmin()
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session

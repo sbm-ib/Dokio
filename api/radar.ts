@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from './_supabase'
 
 const SYSTEM_PROMPT = `Tu es l'assistant administratif de Dokio, spécialisé dans l'administration BELGE (Wallonie-Bruxelles). On te donne l'ensemble des documents administratifs d'un utilisateur (déjà résumés). Ta mission : produire une synthèse GLOBALE de sa situation en raisonnant sur TOUS les documents ensemble, pas un par un.
 
@@ -67,17 +67,13 @@ export default async function handler(req: any, res: any): Promise<void> {
     return
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL?.trim()
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-  if (!supabaseUrl || !supabaseServiceKey) {
-    const missing = [
-      !supabaseUrl && 'SUPABASE_URL',
-      !supabaseServiceKey && 'SUPABASE_SERVICE_ROLE_KEY',
-    ].filter(Boolean).join(', ')
-    res.status(500).json({ error: `Variables Supabase manquantes côté serveur : ${missing}` })
+  let supabase: ReturnType<typeof getSupabaseAdmin>
+  try {
+    supabase = getSupabaseAdmin()
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Erreur de configuration Supabase' })
     return
   }
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const emptyData = {
     argent_qui_rentre: { total_estime_eur: 0, details: [] },
@@ -173,7 +169,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     console.error('[radar] Erreur:', err, 'cause:', err?.cause)
     const cause = err?.cause?.message ?? err?.cause
     res.status(500).json({
-      error: `${err?.message ?? 'Erreur interne'}${cause ? ` — cause: ${cause}` : ''} — supabaseUrl utilisée: ${supabaseUrl}`,
+      error: `${err?.message ?? 'Erreur interne'}${cause ? ` — cause: ${cause}` : ''}`,
     })
   }
 }
