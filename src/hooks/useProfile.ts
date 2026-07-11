@@ -4,7 +4,7 @@ import type { Profile } from '../types'
 
 const SCAN_LIMITS: Record<Profile['plan'], number> = {
   gratuit: 5,
-  premium: 50,
+  premium: Infinity,
 }
 
 export function useProfile() {

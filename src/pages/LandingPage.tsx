@@ -56,7 +56,7 @@ const PLANS = [
     priceNote: 'ou 59 €/an (-30%)',
     badge: '⭐ Recommandé',
     features: [
-      "Jusqu'à 50 analyses par mois",
+      'Analyses illimitées',
       'Radar complet (actions, anticipations, connexions)',
       'Rappels par email',
       'Tous les formats de fichiers',

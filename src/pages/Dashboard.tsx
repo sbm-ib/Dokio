@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, AlertTriangle, Calendar, Plus, ChevronRight, Clock, FolderOpen, Radar as RadarIcon } from 'lucide-react'
+import { FileText, AlertTriangle, Calendar, Plus, ChevronRight, Clock, FolderOpen, Radar as RadarIcon, Star } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useDocuments } from '../hooks/useDocuments'
 import { useRadar } from '../hooks/useRadar'
@@ -119,7 +119,15 @@ export default function Dashboard() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Bonjour {prenom} 👋</h1>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          Bonjour {prenom} 👋
+          {isPremium && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-warning bg-warning-light px-2 py-1 rounded-full">
+              <Star size={12} className="fill-warning" />
+              Premium
+            </span>
+          )}
+        </h1>
         <p className="text-gray-500 mt-1">Voici un aperçu de ta situation administrative.</p>
       </div>
 

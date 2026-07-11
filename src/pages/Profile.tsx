@@ -277,7 +277,7 @@ export default function Profile() {
               )}
               {profile?.plan === 'premium' && (
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {profile.analyses_count ?? 0} / 50 analyses ce mois · Radar complet · Rappels email actifs
+                  Analyses illimitées · Radar complet · Rappels email actifs
                 </p>
               )}
             </div>

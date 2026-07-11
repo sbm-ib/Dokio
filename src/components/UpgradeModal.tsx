@@ -72,7 +72,7 @@ export default function UpgradeModal({
           </div>
           <ul className="space-y-2 mb-5">
             {[
-              "Jusqu'à 50 analyses par mois",
+              'Analyses illimitées',
               'Radar complet (actions, anticipations, connexions)',
               'Rappels par email',
               'Tous les types de fichiers',
