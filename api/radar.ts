@@ -24,6 +24,16 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, sans 
 
 Chaque document fourni peut contenir un champ "montant_eur" déjà extrait du texte original : utilise-le en priorité pour tes calculs. Si une information n'est pas déductible, mets une valeur nulle ou un tableau vide. N'invente jamais de montant absent des documents : si tu n'es pas sûr, laisse à 0 et explique dans le libellé.`
 
+async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (err: any) {
+    const e: any = new Error(`[étape: ${label}] ${err?.message ?? err}`)
+    e.cause = err?.cause ?? err
+    throw e
+  }
+}
+
 function parseRadarJson(content: string): unknown {
   const cleaned = content
     .trim()
@@ -79,26 +89,30 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   try {
-    const { data: documents, error: docsError } = await supabase
-      .from('documents')
-      .select('id, organisme_detecte, categorie, explication_ia, action_recommandee, date_limite, urgence, statut, montant_eur, created_at')
-      .eq('user_id', userId)
-      .neq('statut', 'archive')
+    const { data: documents, error: docsError } = await step('lecture documents', () =>
+      supabase
+        .from('documents')
+        .select('id, organisme_detecte, categorie, explication_ia, action_recommandee, date_limite, urgence, statut, montant_eur, created_at')
+        .eq('user_id', userId)
+        .neq('statut', 'archive')
+    )
 
-    if (docsError) throw docsError
+    if (docsError) throw new Error(`[étape: lecture documents] ${docsError.message}`)
 
     if (!documents || documents.length === 0) {
       res.status(200).json({ data: emptyData, documents_count: 0 })
       return
     }
 
-    const { data: existing } = await supabase
-      .from('radar_snapshots')
-      .select('data, documents_count')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const { data: existing } = await step('lecture cache radar_snapshots', () =>
+      supabase
+        .from('radar_snapshots')
+        .select('data, documents_count')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    )
 
     if (existing && existing.documents_count === documents.length) {
       res.status(200).json({ data: existing.data, documents_count: existing.documents_count })
@@ -111,7 +125,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+    const upstream = await step('appel Claude', () => fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -124,7 +138,7 @@ export default async function handler(req: any, res: any): Promise<void> {
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: `Documents à analyser :\n\n${JSON.stringify(documents)}` }],
       }),
-    })
+    }))
 
     if (!upstream.ok) {
       const err = await upstream.text()
@@ -145,11 +159,13 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
-    await supabase.from('radar_snapshots').delete().eq('user_id', userId)
-    await supabase.from('radar_snapshots').insert({
-      user_id: userId,
-      data: radarData,
-      documents_count: documents.length,
+    await step('écriture cache radar_snapshots', async () => {
+      await supabase.from('radar_snapshots').delete().eq('user_id', userId)
+      await supabase.from('radar_snapshots').insert({
+        user_id: userId,
+        data: radarData,
+        documents_count: documents.length,
+      })
     })
 
     res.status(200).json({ data: radarData, documents_count: documents.length })
