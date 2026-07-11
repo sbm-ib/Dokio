@@ -26,11 +26,29 @@ export function useRadar(documentsCount: number) {
       body: JSON.stringify({ userId: user.id }),
     })
       .then(async res => {
-        const body = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(body.error ?? `Erreur serveur ${res.status}`)
+        // DEBUG TEMPORAIRE : on lit le texte brut avant tout parsing, pour ne
+        // jamais avaler une réponse inattendue en silence (à retirer une fois
+        // le Radar stabilisé).
+        const text = await res.text()
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} — ${text.slice(0, 400)}`)
+        }
+
+        let body: any
+        try {
+          body = JSON.parse(text)
+        } catch {
+          throw new Error(`HTTP ${res.status} mais réponse non-JSON — ${text.slice(0, 400)}`)
+        }
+
+        if (!body || typeof body.data === 'undefined') {
+          throw new Error(`HTTP ${res.status} — champ "data" absent de la réponse : ${text.slice(0, 400)}`)
+        }
+
         return body
       })
-      .then(body => { if (!cancelled) setData(body.data ?? null) })
+      .then(body => { if (!cancelled) setData(body.data) })
       .catch(err => {
         console.error('[useRadar] error:', err)
         if (!cancelled) setError(err?.message ?? 'Erreur inconnue')
