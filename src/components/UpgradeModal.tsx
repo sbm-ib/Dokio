@@ -52,7 +52,7 @@ export default function UpgradeModal({
             <h2 className="text-lg font-bold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-600 mt-1">
               {description ?? (remaining === 0
-                ? 'Tu as épuisé tes 3 analyses gratuites ce mois-ci.'
+                ? 'Tu as épuisé tes 5 analyses gratuites ce mois-ci.'
                 : `Il te reste ${remaining} analyse(s) ce mois.`)}
             </p>
           </div>
@@ -65,16 +65,17 @@ export default function UpgradeModal({
           <div className="flex justify-between items-center mb-4">
             <span className="font-bold text-paperliss text-lg">Premium</span>
             <div className="text-right">
-              <span className="text-2xl font-extrabold text-paperliss">4,99 €</span>
+              <span className="text-2xl font-extrabold text-paperliss">6,99 €</span>
               <span className="text-xs text-gray-400">/mois</span>
+              <p className="text-xs text-gray-400">ou 59 €/an</p>
             </div>
           </div>
           <ul className="space-y-2 mb-5">
             {[
-              'Analyses illimitées',
-              'Tous les types de fichiers',
+              "Jusqu'à 50 analyses par mois",
+              'Radar complet (actions, anticipations, connexions)',
               'Rappels par email',
-              'Alertes deadlines avancées',
+              'Tous les types de fichiers',
             ].map(f => (
               <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
                 <Check size={13} className="text-success shrink-0" />
@@ -88,7 +89,7 @@ export default function UpgradeModal({
             className="w-full bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white text-center py-3 rounded-xl text-sm font-bold transition-colors min-h-[48px] flex items-center justify-center gap-2"
           >
             {loading && <Loader2 size={15} className="animate-spin" />}
-            Passer à Premium — 4,99 €/mois
+            Passer à Premium — 6,99 €/mois
           </button>
         </div>
 

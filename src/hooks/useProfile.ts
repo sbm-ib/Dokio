@@ -2,6 +2,11 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { Profile } from '../types'
 
+const SCAN_LIMITS: Record<Profile['plan'], number> = {
+  gratuit: 5,
+  premium: 50,
+}
+
 export function useProfile() {
   const { profile, refreshProfile } = useAuth()
 
@@ -19,23 +24,24 @@ export function useProfile() {
 
   const canAnalyze = (): boolean => {
     if (!profile) return false
-    if (profile.plan !== 'gratuit') return true
+    const limit = SCAN_LIMITS[profile.plan]
     const now = new Date()
     const resetDate = profile.analyses_reset_date ? new Date(profile.analyses_reset_date) : null
     if (!resetDate || now >= resetDate) return true
-    return (profile.analyses_count ?? 0) < 3
+    return (profile.analyses_count ?? 0) < limit
   }
 
   const remainingAnalyses = (): number => {
-    if (!profile || profile.plan !== 'gratuit') return Infinity
+    if (!profile) return 0
+    const limit = SCAN_LIMITS[profile.plan]
     const now = new Date()
     const resetDate = profile.analyses_reset_date ? new Date(profile.analyses_reset_date) : null
-    if (!resetDate || now >= resetDate) return 3
-    return Math.max(0, 3 - (profile.analyses_count ?? 0))
+    if (!resetDate || now >= resetDate) return limit
+    return Math.max(0, limit - (profile.analyses_count ?? 0))
   }
 
   const incrementAnalysisCount = async () => {
-    if (!profile || profile.plan !== 'gratuit') return
+    if (!profile) return
     const now = new Date()
     const resetDate = profile.analyses_reset_date ? new Date(profile.analyses_reset_date) : null
 

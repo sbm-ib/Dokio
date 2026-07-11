@@ -11,6 +11,7 @@ export default async function handler(req: any, res: any): Promise<void> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
   const userId: string | undefined = body.userId
   const email: string | undefined = body.email
+  const interval: string = body.interval === 'year' ? 'year' : 'month'
 
   if (!userId || !email) {
     res.status(400).json({ error: 'userId et email requis' })
@@ -18,7 +19,9 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   const secretKey = process.env.STRIPE_SECRET_KEY
-  const priceId = process.env.STRIPE_PRICE_ID_PREMIUM
+  const priceId = interval === 'year'
+    ? process.env.STRIPE_PRICE_ID_YEARLY
+    : process.env.STRIPE_PRICE_ID_MONTHLY
   if (!secretKey || !priceId) {
     res.status(500).json({ error: 'Stripe non configuré sur le serveur' })
     return

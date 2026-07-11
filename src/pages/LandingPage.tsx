@@ -39,8 +39,10 @@ const PLANS = [
   {
     name: 'Gratuit',
     price: '0',
+    priceNote: null,
     features: [
-      '3 analyses IA par mois',
+      '5 analyses IA par mois',
+      'Radar en aperçu (montants visibles)',
       'Stockage des documents',
       'Classification automatique',
     ],
@@ -50,13 +52,14 @@ const PLANS = [
   },
   {
     name: 'Premium',
-    price: '4,99',
+    price: '6,99',
+    priceNote: 'ou 59 €/an (-30%)',
     badge: '⭐ Recommandé',
     features: [
-      'Analyses illimitées',
-      'Tous les formats de fichiers',
+      "Jusqu'à 50 analyses par mois",
+      'Radar complet (actions, anticipations, connexions)',
       'Rappels par email',
-      'Alertes deadlines avancées',
+      'Tous les formats de fichiers',
     ],
     cta: 'Passer à Premium',
     highlight: true,
@@ -181,6 +184,11 @@ export default function LandingPage() {
                   <span className={`text-sm ml-1 ${plan.highlight ? 'text-blue-200' : 'text-gray-400'}`}>
                     /mois
                   </span>
+                  {plan.priceNote && (
+                    <p className={`text-xs mt-1 ${plan.highlight ? 'text-blue-200' : 'text-gray-400'}`}>
+                      {plan.priceNote}
+                    </p>
+                  )}
                 </div>
 
                 <ul className="space-y-2 mb-6">

@@ -9,7 +9,7 @@ import {
   CATEGORIE_LABELS, CATEGORIE_COLORS, STATUT_COLORS, STATUT_LABELS,
   getDaysUntil, deadlineColor, deadlineBg, formatDate, formatDateShort,
 } from '../lib/utils'
-import type { Document, RadarAction, RadarArgent } from '../types'
+import type { Document, RadarAction, RadarArgent, RadarData } from '../types'
 
 function getDocLabel(doc: Document): string {
   if (doc.organisme_detecte) {
@@ -63,6 +63,42 @@ function ArgentSummary({ label, argent, tone }: { label: string; argent: RadarAr
   )
 }
 
+function RadarDetails({ data }: { data: RadarData }) {
+  return (
+    <>
+      {data.actions_semaine.length > 0 && (
+        <div className="space-y-2">
+          {data.actions_semaine.map((a, i) => <ActionCard key={i} action={a} />)}
+        </div>
+      )}
+
+      {data.anticipations.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">À anticiper</p>
+          <div className="space-y-1.5">
+            {data.anticipations.map((a, i) => (
+              <p key={i} className="text-xs text-gray-600">
+                <span className="font-medium text-gray-800">{a.attendu}</span> — {a.quand}. Sinon : {a.si_rien_alors}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.connexions.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Connexions entre documents</p>
+          <div className="space-y-1">
+            {data.connexions.map((c, i) => (
+              <p key={i} className="text-xs text-gray-600">{c.lien}</p>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function Dashboard() {
   const { profile } = useAuth()
   const { documents, loading, thisMonthDeadlines, urgentCount, upcomingDeadlines, recentDocuments } = useDocuments()
@@ -72,9 +108,6 @@ export default function Dashboard() {
 
   const prenom = profile?.prenom ?? 'toi'
   const isPremium = profile?.plan === 'premium'
-  const visibleLimit = isPremium ? Infinity : 2
-  const visibleActions = radarData?.actions_semaine.slice(0, visibleLimit) ?? []
-  const hiddenActions = radarData?.actions_semaine.slice(visibleLimit) ?? []
   const radarHasContent = !!radarData && (
     radarData.resume_situation ||
     radarData.actions_semaine.length > 0 ||
@@ -143,48 +176,24 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                {visibleActions.map((a, i) => <ActionCard key={i} action={a} />)}
-
-                {hiddenActions.length > 0 && (
+              {(radarData.actions_semaine.length > 0 || radarData.anticipations.length > 0 || radarData.connexions.length > 0) && (
+                isPremium ? (
+                  <RadarDetails data={radarData} />
+                ) : (
                   <div className="relative">
-                    <div className="space-y-2 blur-sm pointer-events-none select-none">
-                      {hiddenActions.map((a, i) => <ActionCard key={i} action={a} />)}
+                    <div className="blur-sm pointer-events-none select-none">
+                      <RadarDetails data={radarData} />
                     </div>
                     <button
                       onClick={() => setShowUpgrade(true)}
                       className="absolute inset-0 flex items-center justify-center"
                     >
                       <span className="bg-paperliss hover:bg-paperliss-dark text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-lg transition-colors">
-                        Débloquer {hiddenActions.length} action{hiddenActions.length > 1 ? 's' : ''} de plus
+                        Passe Premium pour voir tes actions, anticipations et connexions
                       </span>
                     </button>
                   </div>
-                )}
-              </div>
-
-              {radarData.anticipations.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase mb-2">À anticiper</p>
-                  <div className="space-y-1.5">
-                    {radarData.anticipations.map((a, i) => (
-                      <p key={i} className="text-xs text-gray-600">
-                        <span className="font-medium text-gray-800">{a.attendu}</span> — {a.quand}. Sinon : {a.si_rien_alors}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {radarData.connexions.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Connexions entre documents</p>
-                  <div className="space-y-1">
-                    {radarData.connexions.map((c, i) => (
-                      <p key={i} className="text-xs text-gray-600">{c.lien}</p>
-                    ))}
-                  </div>
-                </div>
+                )
               )}
             </>
           ) : (
@@ -198,7 +207,7 @@ export default function Dashboard() {
           onClose={() => setShowUpgrade(false)}
           badgeLabel="Radar"
           title="Débloque toutes tes actions"
-          description="Le plan gratuit ne montre que les 2 actions principales. Passe à Premium pour voir l'analyse complète du Radar."
+          description="Le plan gratuit montre les montants, mais les actions, anticipations et connexions entre documents sont réservées à Premium."
         />
       )}
 

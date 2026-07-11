@@ -12,6 +12,7 @@ export default function Profile() {
   const [deleting, setDeleting] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month')
   const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
@@ -40,6 +41,8 @@ export default function Profile() {
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm(f => ({ ...f, [key]: value }))
+
+  const isPremium = profile?.plan === 'premium'
 
   const handleSave = async () => {
     setSaving(true)
@@ -72,7 +75,7 @@ export default function Profile() {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, email: user.email }),
+        body: JSON.stringify({ userId: user.id, email: user.email, interval: billingInterval }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
@@ -158,23 +161,33 @@ export default function Profile() {
       <Section icon={<Bell size={18} />} title="Notifications">
         <div className="flex items-center justify-between py-1">
           <div>
-            <p className="text-sm font-medium text-gray-900">Rappels par email</p>
-            <p className="text-xs text-gray-400 mt-0.5">Reçois des alertes avant les deadlines</p>
+            <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+              Rappels par email
+              {!isPremium && (
+                <span className="text-[10px] font-bold text-paperliss bg-paperliss-light px-1.5 py-0.5 rounded-full">
+                  Premium
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {isPremium ? 'Reçois des alertes avant les deadlines' : 'Passe Premium pour activer les rappels'}
+            </p>
           </div>
           <button
-            onClick={() => set('notif_email', !form.notif_email)}
+            onClick={() => isPremium ? set('notif_email', !form.notif_email) : toast('Fonctionnalité réservée à Premium')}
+            disabled={!isPremium}
             className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${
-              form.notif_email ? 'bg-paperliss' : 'bg-gray-200'
-            }`}
+              form.notif_email && isPremium ? 'bg-paperliss' : 'bg-gray-200'
+            } ${!isPremium ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             <span
               className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                form.notif_email ? 'translate-x-6' : 'translate-x-0.5'
+                form.notif_email && isPremium ? 'translate-x-6' : 'translate-x-0.5'
               }`}
             />
           </button>
         </div>
-        {form.notif_email && (
+        {form.notif_email && isPremium && (
           <div className="space-y-4">
 
             {/* Toggle hebdomadaire */}
@@ -259,24 +272,16 @@ export default function Profile() {
               <p className="font-bold text-gray-900 capitalize">Plan {profile?.plan ?? 'gratuit'}</p>
               {profile?.plan === 'gratuit' && (
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {profile.analyses_count ?? 0} / 3 analyses utilisées ce mois
+                  {profile.analyses_count ?? 0} / 5 analyses utilisées ce mois
                 </p>
               )}
               {profile?.plan === 'premium' && (
-                <p className="text-xs text-gray-500 mt-0.5">Analyses illimitées · Rappels email actifs</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {profile.analyses_count ?? 0} / 50 analyses ce mois · Radar complet · Rappels email actifs
+                </p>
               )}
             </div>
           </div>
-          {profile?.plan === 'gratuit' && (
-            <button
-              onClick={handleUpgrade}
-              disabled={checkoutLoading}
-              className="bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors min-h-[48px] flex items-center gap-2"
-            >
-              {checkoutLoading && <Loader2 size={14} className="animate-spin" />}
-              Passer Premium
-            </button>
-          )}
           {profile?.plan === 'premium' && profile.stripe_customer_id && (
             <button
               onClick={handleManageSubscription}
@@ -288,6 +293,44 @@ export default function Profile() {
             </button>
           )}
         </div>
+
+        {profile?.plan === 'gratuit' && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setBillingInterval('month')}
+                className={`py-3 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                  billingInterval === 'month'
+                    ? 'border-paperliss bg-paperliss-light text-paperliss'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                Mensuel — 6,99 €/mois
+              </button>
+              <button
+                onClick={() => setBillingInterval('year')}
+                className={`py-3 rounded-xl text-sm font-semibold border-2 transition-colors relative ${
+                  billingInterval === 'year'
+                    ? 'border-paperliss bg-paperliss-light text-paperliss'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                Annuel — 59 €/an
+                <span className="absolute -top-2 -right-2 bg-success text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  -30%
+                </span>
+              </button>
+            </div>
+            <button
+              onClick={handleUpgrade}
+              disabled={checkoutLoading}
+              className="w-full flex items-center justify-center gap-2 bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white font-semibold rounded-xl transition-colors min-h-[48px]"
+            >
+              {checkoutLoading && <Loader2 size={14} className="animate-spin" />}
+              Passer Premium — {billingInterval === 'year' ? '59 €/an' : '6,99 €/mois'}
+            </button>
+          </div>
+        )}
       </Section>
 
       {/* ── Zone de danger ── */}
