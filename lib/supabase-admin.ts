@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Fichier utilitaire partagé — le préfixe "_" indique à Vercel de ne pas
-// le traiter comme une route API.
 export function getSupabaseAdmin() {
   const rawUrl = process.env.SUPABASE_URL?.trim()
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()

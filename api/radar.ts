@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from './_supabase'
+import { getSupabaseAdmin } from '../lib/supabase-admin'
 
 const SYSTEM_PROMPT = `Tu es l'assistant administratif de Dokio, spécialisé dans l'administration BELGE (Wallonie-Bruxelles). On te donne l'ensemble des documents administratifs d'un utilisateur (déjà résumés). Ta mission : produire une synthèse GLOBALE de sa situation en raisonnant sur TOUS les documents ensemble, pas un par un.
 

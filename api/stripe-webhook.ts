@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { getSupabaseAdmin } from './_supabase'
+import { getSupabaseAdmin } from '../lib/supabase-admin'
 
 export const config = {
   api: {
