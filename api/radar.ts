@@ -1,10 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
-
 const SYSTEM_PROMPT = `Tu es l'assistant administratif de Dokio, spécialisé dans l'administration BELGE (Wallonie-Bruxelles). On te donne l'ensemble des documents administratifs d'un utilisateur (déjà résumés). Ta mission : produire une synthèse GLOBALE de sa situation en raisonnant sur TOUS les documents ensemble, pas un par un.
 
 Utilise le vocabulaire belge : CPAS, mutualité, ONSS, SPF Finances, allocations familiales, prime énergie, tarif social, Justice de Paix, Fédération Wallonie-Bruxelles, etc.
@@ -61,6 +56,18 @@ export default async function handler(req: any, res: any): Promise<void> {
     res.status(400).json({ error: 'userId requis' })
     return
   }
+
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseServiceKey) {
+    const missing = [
+      !supabaseUrl && 'SUPABASE_URL',
+      !supabaseServiceKey && 'SUPABASE_SERVICE_ROLE_KEY',
+    ].filter(Boolean).join(', ')
+    res.status(500).json({ error: `Variables Supabase manquantes côté serveur : ${missing}` })
+    return
+  }
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const emptyData = {
     argent_qui_rentre: { total_estime_eur: 0, details: [] },
