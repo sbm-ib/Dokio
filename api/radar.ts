@@ -57,8 +57,8 @@ export default async function handler(req: any, res: any): Promise<void> {
     return
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.SUPABASE_URL?.trim()
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
   if (!supabaseUrl || !supabaseServiceKey) {
     const missing = [
       !supabaseUrl && 'SUPABASE_URL',
@@ -154,7 +154,10 @@ export default async function handler(req: any, res: any): Promise<void> {
 
     res.status(200).json({ data: radarData, documents_count: documents.length })
   } catch (err: any) {
-    console.error('[radar] Erreur:', err)
-    res.status(500).json({ error: err?.message ?? 'Erreur interne' })
+    console.error('[radar] Erreur:', err, 'cause:', err?.cause)
+    const cause = err?.cause?.message ?? err?.cause
+    res.status(500).json({
+      error: `${err?.message ?? 'Erreur interne'}${cause ? ` — cause: ${cause}` : ''} — supabaseUrl utilisée: ${supabaseUrl}`,
+    })
   }
 }
