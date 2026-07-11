@@ -24,7 +24,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, sans 
 
 Chaque document fourni peut contenir un champ "montant_eur" déjà extrait du texte original : utilise-le en priorité pour tes calculs. Si une information n'est pas déductible, mets une valeur nulle ou un tableau vide. N'invente jamais de montant absent des documents : si tu n'es pas sûr, laisse à 0 et explique dans le libellé.`
 
-async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
+async function step<T>(label: string, fn: () => PromiseLike<T>): Promise<T> {
   try {
     return await fn()
   } catch (err: any) {
@@ -147,7 +147,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
-    const upstreamData = await upstream.json()
+    const upstreamData: any = await upstream.json()
     const content: string = upstreamData?.content?.[0]?.text ?? ''
 
     let radarData: unknown

@@ -65,7 +65,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
-    const data = await upstream.json()
+    const data: any = await upstream.json()
     const content: string = data?.content?.[0]?.text ?? ''
 
     const match = content.match(/```json\s*([\s\S]*?)```/) ?? content.match(/(\{[\s\S]*\})/)

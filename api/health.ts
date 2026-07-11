@@ -1,4 +1,4 @@
-export default function handler(req: any, res: any): void {
+export default function handler(_req: any, res: any): void {
   res.status(200).json({
     ok: true,
     node: process.version,
