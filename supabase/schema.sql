@@ -77,12 +77,26 @@ CREATE TABLE IF NOT EXISTS public.radar_snapshots (
   created_at          timestamptz NOT NULL DEFAULT now()
 );
 
+-- ── Table courriers ──
+-- Lettres générées par IA (contestation, réclamation, résiliation, recours...)
+CREATE TABLE IF NOT EXISTS public.courriers (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  document_id         uuid REFERENCES public.documents(id) ON DELETE SET NULL,
+  type                text NOT NULL,
+  destinataire        text,
+  objet               text,
+  contenu             text NOT NULL,
+  created_at          timestamptz NOT NULL DEFAULT now()
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
 ALTER TABLE public.profiles       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.documents      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.courriers      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rappels        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.radar_snapshots ENABLE ROW LEVEL SECURITY;
 
@@ -108,6 +122,12 @@ CREATE POLICY "radar_snapshots: lecture propre" ON public.radar_snapshots FOR SE
 CREATE POLICY "radar_snapshots: insertion"      ON public.radar_snapshots FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "radar_snapshots: mise à jour"    ON public.radar_snapshots FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "radar_snapshots: suppression"    ON public.radar_snapshots FOR DELETE USING (auth.uid() = user_id);
+
+-- Courriers : un user ne voit/modifie que ses propres lettres générées
+CREATE POLICY "courriers: lecture propre" ON public.courriers FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "courriers: insertion"      ON public.courriers FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "courriers: mise à jour"    ON public.courriers FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "courriers: suppression"    ON public.courriers FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- TRIGGER : créer un profil automatiquement après inscription
