@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { X, Loader2, FileText, AlertTriangle, Send } from 'lucide-react'
+import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 import { LETTER_TYPES, guessLetterType, type LetterType } from '../lib/letterTypes'
 import { getDocLabel } from '../lib/utils'
 import type { Document, LetterResult } from '../types'
@@ -17,6 +18,12 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<LetterResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const [destinataire, setDestinataire] = useState('')
+  const [objet, setObjet] = useState('')
+  const [corps, setCorps] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const profileIncomplete = !profile?.prenom && !profile?.nom || !profile?.adresse
 
@@ -52,7 +59,11 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Erreur serveur')
-      setResult(body.data)
+      const letter: LetterResult = body.data
+      setResult(letter)
+      setDestinataire(letter.destinataire)
+      setObjet(letter.objet)
+      setCorps(letter.corps)
     } catch (err: any) {
       console.error('[GenerateLetterModal] error:', err)
       setError(err?.message ?? 'Erreur inconnue')
@@ -62,9 +73,41 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
     }
   }
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(corps)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Impossible de copier le texte.')
+    }
+  }
+
+  const handleSave = async () => {
+    if (!user?.id) return
+    setSaving(true)
+    try {
+      const { error: saveErr } = await supabase.from('courriers').insert({
+        user_id: user.id,
+        document_id: doc.id,
+        type: selectedType,
+        destinataire,
+        objet,
+        contenu: corps,
+      })
+      if (saveErr) throw saveErr
+      toast.success('Courrier enregistré !')
+    } catch (err) {
+      console.error('[GenerateLetterModal] save error:', err)
+      toast.error("Oups, impossible d'enregistrer le courrier.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Générer une réponse</h2>
@@ -119,40 +162,78 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
             </button>
           </>
         ) : (
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Destinataire</p>
-              <p className="text-sm text-gray-800">{result.destinataire}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Objet</p>
-              <p className="text-sm text-gray-800">{result.objet}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Lettre</p>
-              <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                {result.corps}
-              </div>
-            </div>
+          <div className="space-y-5">
             {result.champs_a_completer.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Champs à compléter</p>
-                <ul className="list-disc list-inside text-sm text-gray-600">
-                  {result.champs_a_completer.map((f, i) => <li key={i}>{f}</li>)}
+              <div className="bg-warning-light rounded-xl p-4">
+                <p className="flex items-center gap-2 text-sm font-bold text-warning mb-2">
+                  <AlertTriangle size={16} />
+                  {result.champs_a_completer.length} champ{result.champs_a_completer.length > 1 ? 's' : ''} à compléter avant l'envoi
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {result.champs_a_completer.map((f, i) => (
+                    <li key={i} className="text-xs font-medium text-warning bg-white/60 px-2 py-1 rounded-lg">
+                      {f}
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
-            <div className="bg-paperliss-light rounded-xl p-3 flex items-start gap-2">
-              <FileText size={14} className="text-paperliss shrink-0 mt-0.5" />
-              <p className="text-sm text-paperliss">{result.conseils_envoi}</p>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Destinataire</label>
+              <input
+                type="text"
+                value={destinataire}
+                onChange={e => setDestinataire(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition"
+              />
             </div>
 
-            <button
-              onClick={onClose}
-              className="w-full bg-paperliss hover:bg-paperliss-dark text-white font-semibold rounded-xl transition-colors min-h-[48px]"
-            >
-              Fermer
-            </button>
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Objet</label>
+              <input
+                type="text"
+                value={objet}
+                onChange={e => setObjet(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-paperliss transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Lettre (modifiable)</label>
+              <textarea
+                value={corps}
+                onChange={e => setCorps(e.target.value)}
+                rows={16}
+                className="w-full px-4 py-4 rounded-xl border border-gray-200 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap outline-none focus:ring-2 focus:ring-paperliss transition resize-y"
+              />
+            </div>
+
+            <div className="bg-paperliss-light rounded-xl p-4 flex items-start gap-2.5">
+              <FileText size={16} className="text-paperliss shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-paperliss uppercase tracking-wide mb-1">Conseils d'envoi</p>
+                <p className="text-sm text-paperliss">{result.conseils_envoi}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleCopy}
+                className="flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl transition-colors min-h-[48px]"
+              >
+                {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+                {copied ? 'Copié !' : 'Copier le texte'}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center justify-center gap-2 bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white font-semibold rounded-xl transition-colors min-h-[48px]"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
           </div>
         )}
       </div>
