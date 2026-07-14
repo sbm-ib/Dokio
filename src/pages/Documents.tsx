@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, FileText, Trash2, Archive, CheckCircle, ExternalLink, Plus, Filter } from 'lucide-react'
+import { Search, FileText, Trash2, Archive, CheckCircle, ExternalLink, Plus, Filter, FileEdit } from 'lucide-react'
 import { useDocuments } from '../hooks/useDocuments'
 import {
   CATEGORIE_LABELS, CATEGORIE_COLORS, STATUT_COLORS, STATUT_LABELS,
   getDaysUntil, deadlineColor, formatDateShort,
 } from '../lib/utils'
+import GenerateLetterModal from '../components/GenerateLetterModal'
 import type { Document } from '../types'
 import toast from 'react-hot-toast'
 
@@ -36,6 +37,7 @@ export default function Documents() {
   const [statutFilter, setStatutFilter] = useState<StatutFilter>('tous')
   const [deleting, setDeleting] = useState<string | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const [letterDoc, setLetterDoc] = useState<Document | null>(null)
 
   useEffect(() => {
     const docId = searchParams.get('doc')
@@ -185,9 +187,14 @@ export default function Documents() {
               highlighted={highlightedId === doc.id}
               onDelete={handleDelete}
               onStatusChange={handleStatus}
+              onGenerateLetter={setLetterDoc}
             />
           ))}
         </div>
+      )}
+
+      {letterDoc && (
+        <GenerateLetterModal doc={letterDoc} onClose={() => setLetterDoc(null)} />
       )}
     </div>
   )
@@ -203,12 +210,14 @@ function DocumentCard({
   highlighted,
   onDelete,
   onStatusChange,
+  onGenerateLetter,
 }: {
   doc: Document
   deleting: boolean
   highlighted: boolean
   onDelete: (id: string) => void
   onStatusChange: (id: string, statut: Document['statut']) => void
+  onGenerateLetter: (doc: Document) => void
 }) {
   const days = doc.date_limite ? getDaysUntil(doc.date_limite) : null
 
@@ -264,6 +273,15 @@ function DocumentCard({
           {days < 0 && <span className="text-danger">(dépassée)</span>}
         </div>
       )}
+
+      {/* Générer ma réponse */}
+      <button
+        onClick={() => onGenerateLetter(doc)}
+        className="w-full flex items-center justify-center gap-2 bg-paperliss hover:bg-paperliss-dark text-white text-sm font-semibold rounded-xl transition-colors min-h-[44px]"
+      >
+        <FileEdit size={15} />
+        Générer ma réponse
+      </button>
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-1 border-t border-gray-50">

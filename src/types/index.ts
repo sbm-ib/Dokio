@@ -97,3 +97,11 @@ export interface AIAnalysisResult {
   lien_officiel: string | null
   montant_eur: number | null
 }
+
+export interface LetterResult {
+  destinataire: string
+  objet: string
+  corps: string
+  conseils_envoi: string
+  champs_a_completer: string[]
+}
