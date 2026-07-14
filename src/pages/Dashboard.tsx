@@ -8,17 +8,8 @@ import UpgradeModal from '../components/UpgradeModal'
 import RadarPanel from '../components/RadarPanel'
 import {
   CATEGORIE_LABELS, CATEGORIE_COLORS, STATUT_COLORS, STATUT_LABELS,
-  getDaysUntil, deadlineColor, deadlineBg, formatDate, formatDateShort,
+  getDaysUntil, deadlineColor, deadlineBg, formatDate, formatDateShort, getDocLabel,
 } from '../lib/utils'
-import type { Document } from '../types'
-
-function getDocLabel(doc: Document): string {
-  if (doc.organisme_detecte) {
-    const s = doc.organisme_detecte
-    return s.length > 25 ? s.slice(0, 25) + '…' : s
-  }
-  return `Document du ${formatDateShort(doc.created_at)}`
-}
 
 export default function Dashboard() {
   const { profile } = useAuth()
@@ -74,7 +65,7 @@ export default function Dashboard() {
         data={radarData}
         loading={radarLoading}
         error={radarError}
-        documentsCount={documents.length}
+        documents={documents}
         isPremium={isPremium}
         onUpgradeClick={() => setShowUpgrade(true)}
       />

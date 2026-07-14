@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search, FileText, Trash2, Archive, CheckCircle, ExternalLink, Plus, Filter } from 'lucide-react'
 import { useDocuments } from '../hooks/useDocuments'
 import {
@@ -30,10 +30,28 @@ const STATUTS: { value: StatutFilter; label: string }[] = [
 export default function Documents() {
   const { documents, loading, updateStatus, deleteDocument } = useDocuments()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState<CatFilter>('tous')
   const [statutFilter, setStatutFilter] = useState<StatutFilter>('tous')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const docId = searchParams.get('doc')
+    if (!docId || loading) return
+
+    setHighlightedId(docId)
+    const el = document.getElementById(`doc-${docId}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    searchParams.delete('doc')
+    setSearchParams(searchParams, { replace: true })
+
+    const timeout = setTimeout(() => setHighlightedId(null), 2500)
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   const filtered = useMemo(() => {
     return documents.filter(doc => {
@@ -164,6 +182,7 @@ export default function Documents() {
               key={doc.id}
               doc={doc}
               deleting={deleting === doc.id}
+              highlighted={highlightedId === doc.id}
               onDelete={handleDelete}
               onStatusChange={handleStatus}
             />
@@ -181,18 +200,26 @@ function getDocTitle(doc: Document): string {
 function DocumentCard({
   doc,
   deleting,
+  highlighted,
   onDelete,
   onStatusChange,
 }: {
   doc: Document
   deleting: boolean
+  highlighted: boolean
   onDelete: (id: string) => void
   onStatusChange: (id: string, statut: Document['statut']) => void
 }) {
   const days = doc.date_limite ? getDaysUntil(doc.date_limite) : null
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-5 pr-4 flex flex-col gap-3 hover:shadow-md transition-shadow overflow-hidden w-full" style={{ boxSizing: 'border-box' }}>
+    <div
+      id={`doc-${doc.id}`}
+      className={`bg-white rounded-2xl shadow-sm p-5 pr-4 flex flex-col gap-3 hover:shadow-md transition-shadow overflow-hidden w-full ${
+        highlighted ? 'ring-2 ring-paperliss' : ''
+      }`}
+      style={{ boxSizing: 'border-box' }}
+    >
       {/* Top row */}
       <div className="flex items-start justify-between gap-2 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0 flex-1">

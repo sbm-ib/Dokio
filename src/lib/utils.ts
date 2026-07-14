@@ -59,3 +59,11 @@ export function formatDateShort(dateStr: string): string {
     day: '2-digit', month: '2-digit', year: 'numeric',
   })
 }
+
+export function getDocLabel(doc: Document): string {
+  if (doc.organisme_detecte) {
+    const s = doc.organisme_detecte
+    return s.length > 25 ? s.slice(0, 25) + '…' : s
+  }
+  return `Document du ${formatDateShort(doc.created_at)}`
+}

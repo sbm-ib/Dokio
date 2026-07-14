@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Radar as RadarIcon, TrendingUp, TrendingDown, Calendar,
   ChevronDown, ChevronUp, Bell, Link2,
 } from 'lucide-react'
-import type { RadarAction, RadarAnticipation, RadarArgent, RadarConnexion, RadarData } from '../types'
+import { getDocLabel } from '../lib/utils'
+import type { Document, RadarAction, RadarAnticipation, RadarArgent, RadarConnexion, RadarData } from '../types'
 
 const URGENCE_STYLES: Record<RadarAction['urgence'], string> = {
   haute: 'bg-danger-light text-danger',
@@ -125,19 +127,55 @@ function AnticipationCard({ anticipation }: { anticipation: RadarAnticipation })
   )
 }
 
-function ConnexionCard({ connexion }: { connexion: RadarConnexion }) {
+const CONNEXION_PREVIEW_COUNT = 3
+
+function ConnexionDocChip({ id, docsById }: { id: string; docsById: Map<string, Document> }) {
+  const navigate = useNavigate()
+  const doc = docsById.get(id)
+  const label = doc ? getDocLabel(doc) : 'Document'
+
+  return (
+    <button
+      onClick={() => navigate(`/documents?doc=${id}`)}
+      className="bg-white/70 hover:bg-white text-paperliss text-xs font-medium px-2 py-0.5 rounded-full truncate max-w-[160px] transition-colors"
+      title={label}
+    >
+      {label}
+    </button>
+  )
+}
+
+function ConnexionCard({ connexion, docsById }: { connexion: RadarConnexion; docsById: Map<string, Document> }) {
+  const [expanded, setExpanded] = useState(false)
+  const visibleIds = expanded ? connexion.documents : connexion.documents.slice(0, CONNEXION_PREVIEW_COUNT)
+  const hiddenCount = connexion.documents.length - visibleIds.length
+
   return (
     <div className="bg-paperliss-light border-l-4 border-paperliss rounded-2xl p-4">
       {connexion.documents.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          {connexion.documents.map((doc, i) => (
-            <span key={i} className="inline-flex items-center gap-1">
-              <span className="bg-white/70 text-paperliss text-xs font-medium px-2 py-0.5 rounded-full truncate max-w-[160px]">
-                {doc}
-              </span>
-              {i < connexion.documents.length - 1 && <Link2 size={11} className="text-paperliss shrink-0" />}
+          {visibleIds.map((id, i) => (
+            <span key={id} className="inline-flex items-center gap-1">
+              <ConnexionDocChip id={id} docsById={docsById} />
+              {i < visibleIds.length - 1 && <Link2 size={11} className="text-paperliss shrink-0" />}
             </span>
           ))}
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="text-xs font-semibold text-paperliss hover:underline px-1"
+            >
+              + {hiddenCount} autre{hiddenCount > 1 ? 's' : ''}
+            </button>
+          )}
+          {expanded && connexion.documents.length > CONNEXION_PREVIEW_COUNT && (
+            <button
+              onClick={() => setExpanded(false)}
+              className="text-xs font-semibold text-paperliss hover:underline px-1"
+            >
+              Réduire
+            </button>
+          )}
         </div>
       )}
       <p className="text-sm text-gray-700 leading-snug">{connexion.lien}</p>
@@ -149,13 +187,15 @@ interface Props {
   data: RadarData | null
   loading: boolean
   error: string | null
-  documentsCount: number
+  documents: Document[]
   isPremium: boolean
   onUpgradeClick: () => void
 }
 
-export default function RadarPanel({ data, loading, error, documentsCount, isPremium, onUpgradeClick }: Props) {
-  if (documentsCount === 0) return null
+export default function RadarPanel({ data, loading, error, documents, isPremium, onUpgradeClick }: Props) {
+  const docsById = useMemo(() => new Map(documents.map(d => [d.id, d])), [documents])
+
+  if (documents.length === 0) return null
 
   const hasContent = !!data && (
     data.resume_situation ||
@@ -218,7 +258,7 @@ export default function RadarPanel({ data, loading, error, documentsCount, isPre
                       Connexions entre documents
                     </p>
                     <div className="space-y-3">
-                      {data.connexions.map((c, i) => <ConnexionCard key={i} connexion={c} />)}
+                      {data.connexions.map((c, i) => <ConnexionCard key={i} connexion={c} docsById={docsById} />)}
                     </div>
                   </div>
                 )}
@@ -234,7 +274,7 @@ export default function RadarPanel({ data, loading, error, documentsCount, isPre
                   )}
                   {data.connexions.length > 0 && (
                     <div className="space-y-3">
-                      {data.connexions.map((c, i) => <ConnexionCard key={i} connexion={c} />)}
+                      {data.connexions.map((c, i) => <ConnexionCard key={i} connexion={c} docsById={docsById} />)}
                     </div>
                   )}
                 </div>
