@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save } from 'lucide-react'
+import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { LETTER_TYPES, guessLetterType, type LetterType } from '../lib/letterTypes'
 import { getDocLabel } from '../lib/utils'
+import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
 import type { Document, LetterResult } from '../types'
 import toast from 'react-hot-toast'
 
@@ -80,6 +81,16 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
       setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error('Impossible de copier le texte.')
+    }
+  }
+
+  const handleDownloadPdf = () => {
+    try {
+      const filename = buildLetterFilename(doc.organisme_detecte || destinataire)
+      downloadLetterPdf(corps, filename)
+    } catch (err) {
+      console.error('[GenerateLetterModal] pdf error:', err)
+      toast.error('Impossible de générer le PDF.')
     }
   }
 
@@ -217,13 +228,20 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={handleCopy}
                 className="flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl transition-colors min-h-[48px]"
               >
                 {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
                 {copied ? 'Copié !' : 'Copier le texte'}
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                className="flex items-center justify-center gap-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl transition-colors min-h-[48px]"
+              >
+                <Download size={16} />
+                Télécharger en PDF
               </button>
               <button
                 onClick={handleSave}
