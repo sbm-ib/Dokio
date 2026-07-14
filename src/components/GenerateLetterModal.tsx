@@ -3,14 +3,22 @@ import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download 
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { LETTER_TYPES, guessLetterType, type LetterType } from '../lib/letterTypes'
-import { getDocLabel } from '../lib/utils'
+import { getDocLabel, formatDate } from '../lib/utils'
 import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
-import type { Document, LetterResult } from '../types'
+import type { Document, LetterResult, Profile } from '../types'
 import toast from 'react-hot-toast'
 
 interface Props {
   doc: Document
   onClose: () => void
+}
+
+function buildExpediteur(profile: Profile | null, email: string) {
+  const nom = [profile?.prenom, profile?.nom].filter(Boolean).join(' ') || '[Votre nom]'
+  const adresse = profile?.adresse
+    ? `${profile.adresse}, ${profile.code_postal ?? ''} ${profile.ville ?? ''}`.trim()
+    : '[Votre adresse]'
+  return { nom, adresse, email: email || '[Votre email]' }
 }
 
 export default function GenerateLetterModal({ doc, onClose }: Props) {
@@ -32,10 +40,7 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
     setLoading(true)
     setError(null)
 
-    const nomComplet = [profile?.prenom, profile?.nom].filter(Boolean).join(' ') || '[Votre nom]'
-    const adresseComplete = profile?.adresse
-      ? `${profile.adresse}, ${profile.code_postal ?? ''} ${profile.ville ?? ''}`.trim()
-      : '[Votre adresse]'
+    const expediteur = buildExpediteur(profile, user?.email ?? '')
 
     try {
       const res = await fetch('/api/generate-letter', {
@@ -51,11 +56,7 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
             reference: null,
           },
           type_courrier: selectedType,
-          expediteur: {
-            nom: nomComplet,
-            adresse: adresseComplete,
-            email: user?.email ?? '',
-          },
+          expediteur,
         }),
       })
       const body = await res.json()
@@ -86,8 +87,18 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
 
   const handleDownloadPdf = () => {
     try {
+      const expediteur = buildExpediteur(profile, user?.email ?? '')
+      const lieu = profile?.ville || 'Bruxelles'
       const filename = buildLetterFilename(doc.organisme_detecte || destinataire)
-      downloadLetterPdf(corps, filename)
+      downloadLetterPdf({
+        expediteurNom: expediteur.nom,
+        expediteurAdresse: expediteur.adresse,
+        expediteurEmail: expediteur.email,
+        destinataire,
+        objet,
+        corps,
+        lieu: `${lieu}, le ${formatDate(new Date().toISOString())}`,
+      }, filename)
     } catch (err) {
       console.error('[GenerateLetterModal] pdf error:', err)
       toast.error('Impossible de générer le PDF.')
