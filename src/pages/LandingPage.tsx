@@ -157,7 +157,7 @@ export default function LandingPage() {
           </h2>
           <p className="text-center text-gray-500 mb-12">Commencez gratuitement, évoluez quand vous en avez besoin.</p>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
