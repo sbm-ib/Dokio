@@ -81,8 +81,8 @@ export default function LandingPage() {
       {/* ── Hero ── */}
       <section className="bg-white pt-16 pb-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-paperliss-light text-paperliss rounded-full px-4 py-1.5 text-sm font-medium mb-8">
-            <Shield size={13} />
+          <div className="inline-flex items-center gap-2 text-paperliss text-lg md:text-xl font-semibold mb-8">
+            <Shield size={20} className="shrink-0" />
             Vos papiers administratifs, enfin sous contrôle.
           </div>
 
