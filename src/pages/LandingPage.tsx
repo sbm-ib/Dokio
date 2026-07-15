@@ -7,21 +7,21 @@ const STEPS = [
     icon: ScanLine,
     step: '01',
     title: 'Scanner',
-    desc: 'Prends en photo ou glisse ton courrier. JPG, PNG ou PDF acceptés.',
+    desc: 'Prenez en photo ou glissez votre courrier. JPG, PNG ou PDF acceptés.',
     color: 'bg-paperliss-light text-paperliss',
   },
   {
     icon: Brain,
     step: '02',
     title: 'Comprendre',
-    desc: "Notre IA l'explique en français simple, comme un ami qui s'y connaît.",
+    desc: "Notre IA l'explique en langage simple, comme un ami qui s'y connaît.",
     color: 'bg-success-light text-success',
   },
   {
     icon: Bell,
     step: '03',
     title: 'Agir',
-    desc: "On te dit quoi faire et quand. Plus jamais de deadline ratée.",
+    desc: "On vous dit quoi faire et quand. Plus jamais de deadline ratée.",
     color: 'bg-warning-light text-warning',
   },
 ]
@@ -32,7 +32,7 @@ const BENEFITS = [
   'Détection des deadlines importantes',
   'Alertes avant que ça soit trop tard',
   'Données chiffrées et sécurisées',
-  'Accessible depuis ton téléphone',
+  'Accessible depuis votre téléphone',
 ]
 
 const PLANS = [
@@ -83,7 +83,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-paperliss-light text-paperliss rounded-full px-4 py-1.5 text-sm font-medium mb-8">
             <Shield size={13} />
-            56 % des Français galèrent avec leurs papiers admin
+            L'assistant administratif intelligent, pensé pour la Belgique
           </div>
 
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-[1.1] tracking-tight">
@@ -93,7 +93,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Dokio lit tes papiers admin et te dit exactement quoi faire.
+            Dokio lit vos documents administratifs et vous dit exactement quoi faire.
           </p>
 
           <button
@@ -113,7 +113,7 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-3">
             Comment ça marche ?
           </h2>
-          <p className="text-center text-gray-500 mb-12">En 3 étapes, ton admin devient gérable.</p>
+          <p className="text-center text-gray-500 mb-12">En 3 étapes, vos démarches administratives deviennent simples.</p>
 
           <div className="grid md:grid-cols-3 gap-6">
             {STEPS.map((s) => (
@@ -134,7 +134,7 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-white">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            Tout ce dont tu as besoin
+            Tout ce dont vous avez besoin
           </h2>
           <div className="grid md:grid-cols-2 gap-3">
             {BENEFITS.map((b) => (
@@ -155,7 +155,7 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-3">
             Tarifs simples et transparents
           </h2>
-          <p className="text-center text-gray-500 mb-12">Commence gratuitement, évolue quand tu en as besoin.</p>
+          <p className="text-center text-gray-500 mb-12">Commencez gratuitement, évoluez quand vous en avez besoin.</p>
 
           <div className="grid md:grid-cols-3 gap-6">
             {PLANS.map((plan) => (
