@@ -83,7 +83,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-paperliss-light text-paperliss rounded-full px-4 py-1.5 text-sm font-medium mb-8">
             <Shield size={13} />
-            L'assistant administratif intelligent, pensé pour la Belgique
+            Vos papiers administratifs, enfin sous contrôle.
           </div>
 
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-[1.1] tracking-tight">
