@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { LETTER_TYPES, guessLetterType, type LetterType } from '../lib/letterTypes'
+import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, type LetterType } from '../lib/letterTypes'
 import { getDocLabel, formatDate } from '../lib/utils'
 import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
 import type { Document, LetterResult, Profile } from '../types'
@@ -23,7 +23,9 @@ function buildExpediteur(profile: Profile | null, email: string) {
 
 export default function GenerateLetterModal({ doc, onClose }: Props) {
   const { profile, user } = useAuth()
-  const [selectedType, setSelectedType] = useState<LetterType>(() => guessLetterType(doc))
+  const suggestions = suggestLetterTypes(doc)
+  const [selectedType, setSelectedType] = useState<LetterType>(() => suggestions[0])
+  const [showAllTypes, setShowAllTypes] = useState(false)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<LetterResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -142,22 +144,47 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
 
         {!result ? (
           <>
-            <p className="text-sm font-medium text-gray-700 mb-2">Type de courrier</p>
-            <div className="space-y-2 mb-4">
-              {LETTER_TYPES.map(({ value, label }) => (
+            <p className="text-sm font-medium text-gray-700 mb-2">Quelle est ta situation ?</p>
+            <div className="space-y-2.5 mb-3">
+              {suggestions.map(value => (
                 <button
                   key={value}
                   onClick={() => setSelectedType(value)}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${
+                  className={`w-full text-left px-4 py-3.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
                     selectedType === value
                       ? 'border-paperliss bg-paperliss-light text-paperliss'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {label}
+                  {getLetterTypeLabel(value)}
                 </button>
               ))}
             </div>
+
+            <button
+              onClick={() => setShowAllTypes(s => !s)}
+              className="text-xs text-gray-400 hover:text-gray-600 hover:underline mb-4"
+            >
+              {showAllTypes ? 'Masquer les autres options' : 'Autre type de courrier'}
+            </button>
+
+            {showAllTypes && (
+              <div className="space-y-2 mb-4">
+                {LETTER_TYPES.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setSelectedType(value)}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${
+                      selectedType === value
+                        ? 'border-paperliss bg-paperliss-light text-paperliss'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {profileIncomplete && (
               <div className="flex items-start gap-2 bg-warning-light text-warning text-xs rounded-xl p-3 mb-4">

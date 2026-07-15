@@ -9,32 +9,49 @@ export type LetterType =
   | 'recours'
   | 'mise_en_demeure'
 
+// Intitulés en langage courant — le type technique (à gauche) est celui
+// envoyé à /api/generate-letter.ts, l'utilisateur ne voit que le label.
 export const LETTER_TYPES: { value: LetterType; label: string }[] = [
-  { value: 'contestation', label: 'Contestation' },
-  { value: 'reclamation', label: 'Réclamation' },
-  { value: 'demande_plan_paiement', label: 'Demande de plan de paiement' },
-  { value: 'resiliation', label: 'Résiliation' },
-  { value: 'demande_information', label: "Demande d'information" },
-  { value: 'recours', label: 'Recours' },
-  { value: 'mise_en_demeure', label: 'Mise en demeure' },
+  { value: 'contestation', label: "Je ne suis pas d'accord / je conteste" },
+  { value: 'reclamation', label: 'Je réclame quelque chose qu\'on me doit' },
+  { value: 'demande_plan_paiement', label: 'Je demande un délai ou un plan de paiement' },
+  { value: 'resiliation', label: 'Je veux résilier / arrêter' },
+  { value: 'demande_information', label: 'Je demande une information ou une explication' },
+  { value: 'recours', label: 'Je fais un recours contre une décision' },
+  { value: 'mise_en_demeure', label: 'Je mets en demeure (dernier recours avant action)' },
 ]
 
+const LETTER_TYPE_LABELS: Record<LetterType, string> = Object.fromEntries(
+  LETTER_TYPES.map(t => [t.value, t.label]),
+) as Record<LetterType, string>
+
+export function getLetterTypeLabel(type: LetterType): string {
+  return LETTER_TYPE_LABELS[type]
+}
+
 /**
- * Devine le type de courrier le plus probable à partir du document analysé.
- * Simple point de départ pré-sélectionné — l'utilisateur peut toujours changer.
+ * Classe les types de courrier du plus probable au moins probable pour CE
+ * document, à partir de ce que l'IA a déjà déduit (catégorie, urgence,
+ * mots-clés du résumé). Les 2-3 premiers servent de suggestions mises en
+ * avant ; le reste de la liste (via LETTER_TYPES) couvre tous les cas.
  */
-export function guessLetterType(doc: Document): LetterType {
+export function suggestLetterTypes(doc: Document): LetterType[] {
   const text = `${doc.explication_ia ?? ''} ${doc.action_recommandee ?? ''}`.toLowerCase()
 
-  if (/décision|refus|rejet|rejeté/.test(text)) return 'recours'
-  if (/mise en demeure/.test(text)) return 'contestation'
-  if (/résiliat/.test(text)) return 'resiliation'
-
-  if (doc.categorie === 'factures' && (doc.urgence || doc.montant_eur)) {
-    return 'demande_plan_paiement'
+  if (/décision|refus|rejet|rejeté/.test(text)) {
+    return ['recours', 'demande_information', 'contestation']
   }
-
-  if (doc.categorie === 'identite') return 'demande_information'
-
-  return 'reclamation'
+  if (/mise en demeure/.test(text)) {
+    return ['contestation', 'demande_plan_paiement', 'reclamation']
+  }
+  if (/résiliat/.test(text)) {
+    return ['resiliation', 'reclamation', 'demande_information']
+  }
+  if (doc.categorie === 'factures' && (doc.urgence || doc.montant_eur)) {
+    return ['demande_plan_paiement', 'contestation', 'reclamation']
+  }
+  if (doc.categorie === 'identite') {
+    return ['demande_information', 'reclamation', 'contestation']
+  }
+  return ['reclamation', 'demande_information', 'contestation']
 }
