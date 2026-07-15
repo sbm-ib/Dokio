@@ -2,23 +2,15 @@ import { useState } from 'react'
 import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, FREE_FORM_TYPE, type LetterType } from '../lib/letterTypes'
+import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, buildExpediteur, FREE_FORM_TYPE, type LetterType } from '../lib/letterTypes'
 import { getDocLabel, formatDate } from '../lib/utils'
 import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
-import type { Document, LetterResult, Profile } from '../types'
+import type { Document, LetterResult } from '../types'
 import toast from 'react-hot-toast'
 
 interface Props {
   doc: Document
   onClose: () => void
-}
-
-function buildExpediteur(profile: Profile | null, email: string) {
-  const nom = [profile?.prenom, profile?.nom].filter(Boolean).join(' ') || '[Votre nom]'
-  const adresse = profile?.adresse
-    ? `${profile.adresse}, ${profile.code_postal ?? ''} ${profile.ville ?? ''}`.trim()
-    : '[Votre adresse]'
-  return { nom, adresse, email: email || '[Votre email]' }
 }
 
 export default function GenerateLetterModal({ doc, onClose }: Props) {

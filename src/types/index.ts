@@ -48,6 +48,17 @@ export interface Rappel {
   created_at: string
 }
 
+export interface Courrier {
+  id: string
+  user_id: string
+  document_id: string | null
+  type: string
+  destinataire: string | null
+  objet: string | null
+  contenu: string
+  created_at: string
+}
+
 export interface RadarArgentDetail {
   libelle: string
   montant_eur: number

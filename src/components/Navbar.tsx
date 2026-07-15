@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, FolderOpen, ScanLine, User,
+  LayoutDashboard, FolderOpen, ScanLine, User, Mail,
   LogOut, Sun, Moon,
 } from 'lucide-react'
 import DokioLogo from './DokioLogo'
@@ -13,6 +13,7 @@ import clsx from 'clsx'
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/documents', label: 'Mes Documents', icon: FolderOpen },
+  { to: '/courriers', label: 'Mes courriers', icon: Mail },
   { to: '/scanner', label: 'Scanner', icon: ScanLine },
   { to: '/profil', label: 'Mon Profil', icon: User },
 ]

@@ -1,4 +1,4 @@
-import type { Document } from '../types'
+import type { Document, Profile } from '../types'
 
 export type LetterType =
   | 'contestation'
@@ -30,8 +30,18 @@ const LETTER_TYPE_LABELS: Record<LetterType, string> = Object.fromEntries(
   LETTER_TYPES.map(t => [t.value, t.label]),
 ) as Record<LetterType, string>
 
-export function getLetterTypeLabel(type: LetterType): string {
-  return LETTER_TYPE_LABELS[type]
+// Tolérant : `type` vient parfois tel quel de la base (colonne text libre),
+// donc pas forcément un LetterType valide — on retombe sur la valeur brute.
+export function getLetterTypeLabel(type: string): string {
+  return LETTER_TYPE_LABELS[type as LetterType] ?? type
+}
+
+export function buildExpediteur(profile: Profile | null, email: string) {
+  const nom = [profile?.prenom, profile?.nom].filter(Boolean).join(' ') || '[Votre nom]'
+  const adresse = profile?.adresse
+    ? `${profile.adresse}, ${profile.code_postal ?? ''} ${profile.ville ?? ''}`.trim()
+    : '[Votre adresse]'
+  return { nom, adresse, email: email || '[Votre email]' }
 }
 
 /**

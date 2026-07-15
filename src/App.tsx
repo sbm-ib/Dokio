@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
 import Scanner from './pages/Scanner'
 import Profile from './pages/Profile'
+import Courriers from './pages/Courriers'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -36,6 +37,7 @@ function AppRoutes() {
           <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+          <Route path="/courriers" element={<ProtectedRoute><Courriers /></ProtectedRoute>} />
           <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
