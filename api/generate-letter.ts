@@ -1,4 +1,13 @@
+// TODO sécurité: vérifier un token signé au lieu de faire confiance au userId du body
 import { parseAiJson } from '../lib/parse-ai-json.js'
+import { getUsageStatus, incrementUsage } from '../lib/usageLimits.js'
+
+const USAGE_CONFIG = {
+  countColumn: 'courriers_count' as const,
+  resetColumn: 'courriers_reset_date' as const,
+  freeLimit: 1,
+  premiumLimit: 30,
+}
 
 const SYSTEM_PROMPT = `Tu es un rédacteur administratif expert, spécialisé dans l'administration BELGE (Wallonie-Bruxelles). Tu rédiges des courriers formels, clairs et efficaces au nom de l'utilisateur.
 
@@ -60,9 +69,14 @@ export default async function handler(req: any, res: any): Promise<void> {
   const typeCourrier: string | undefined = body.type_courrier
   const demandeLibre: string | undefined = typeof body.demande_libre === 'string' ? body.demande_libre.trim() : undefined
   const expediteur = body.expediteur
+  const userId: string | undefined = body.userId
 
   if (!document || typeof document !== 'object') {
     res.status(400).json({ error: 'document requis' })
+    return
+  }
+  if (!userId) {
+    res.status(400).json({ error: 'userId requis' })
     return
   }
   if (!typeCourrier || !VALID_TYPES.includes(typeCourrier)) {
@@ -85,6 +99,15 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   try {
+    const usage = await getUsageStatus(userId, USAGE_CONFIG)
+    if (!usage.allowed) {
+      res.status(403).json({
+        error: 'Passez Premium pour générer des courriers illimités.',
+        code: 'limit_reached',
+      })
+      return
+    }
+
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -122,6 +145,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
+    await incrementUsage(userId, USAGE_CONFIG)
     res.status(200).json({ data: letter })
   } catch (err: any) {
     console.error('[generate-letter] Erreur:', err)

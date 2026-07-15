@@ -1,3 +1,13 @@
+// TODO sécurité: vérifier un token signé au lieu de faire confiance au userId du body
+import { getUsageStatus, incrementUsage } from '../lib/usageLimits.js'
+
+const USAGE_CONFIG = {
+  countColumn: 'analyses_count' as const,
+  resetColumn: 'analyses_reset_date' as const,
+  freeLimit: 5,
+  premiumLimit: 100,
+}
+
 const SYSTEM_PROMPT = `Tu es un expert en administration belge et française. Analyse ce document et réponds UNIQUEMENT avec ce JSON (aucun texte avant ou après) :
 {
   "organisme": "nom de l'organisme expéditeur (SPF Finances, CPAS, Mutualité, ONSS, SPW, etc.)",
@@ -26,9 +36,14 @@ export default async function handler(req: any, res: any): Promise<void> {
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
   const text: string | undefined = body.text
+  const userId: string | undefined = body.userId
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: 'Texte trop court pour être analysé' })
+    return
+  }
+  if (!userId) {
+    res.status(400).json({ error: 'userId requis' })
     return
   }
 
@@ -39,6 +54,15 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   try {
+    const usage = await getUsageStatus(userId, USAGE_CONFIG)
+    if (!usage.allowed) {
+      res.status(403).json({
+        error: 'Vous avez atteint votre limite de 5 analyses ce mois-ci. Passez Premium pour des analyses illimitées.',
+        code: 'limit_reached',
+      })
+      return
+    }
+
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -97,6 +121,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     const montant = typeof result.montant_eur === 'string' ? parseFloat(result.montant_eur) : result.montant_eur
     result.montant_eur = typeof montant === 'number' && !isNaN(montant) ? montant : null
 
+    await incrementUsage(userId, USAGE_CONFIG)
     res.status(200).json(result)
   } catch (err: any) {
     console.error('[analyze] Erreur:', err)

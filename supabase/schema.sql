@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   expo_push_token     text,
   stripe_customer_id     text,
   stripe_subscription_id text,
+  courriers_count        integer NOT NULL DEFAULT 0,
+  courriers_reset_date   timestamptz,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -31,6 +33,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Si la table existait déjà avant l'ajout du paywall Stripe, colle ceci dans l'éditeur SQL Supabase :
 -- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stripe_customer_id text;
 -- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id text;
+
+-- Si la table existait déjà avant l'ajout du gating freemium des courriers, colle ceci :
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS courriers_count integer NOT NULL DEFAULT 0;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS courriers_reset_date timestamptz;
 
 -- ── Table documents ──
 CREATE TABLE IF NOT EXISTS public.documents (

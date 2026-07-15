@@ -1,4 +1,21 @@
+// TODO sécurité: vérifier un token signé au lieu de faire confiance au userId du body
 import { getSupabaseAdmin } from '../lib/supabase-admin.js'
+
+function restrictForPlan(data: any, plan: string) {
+  if (plan === 'premium') return data
+  const lockedCounts = {
+    actions_semaine: data.actions_semaine?.length ?? 0,
+    anticipations: data.anticipations?.length ?? 0,
+    connexions: data.connexions?.length ?? 0,
+  }
+  return {
+    ...data,
+    actions_semaine: [],
+    anticipations: [],
+    connexions: [],
+    locked_counts: lockedCounts,
+  }
+}
 
 const SYSTEM_PROMPT = `Tu es l'assistant administratif de Dokio, spécialisé dans l'administration BELGE (Wallonie-Bruxelles). On te donne l'ensemble des documents administratifs d'un utilisateur (déjà résumés). Ta mission : produire une synthèse GLOBALE de sa situation en raisonnant sur TOUS les documents ensemble, pas un par un.
 
@@ -100,6 +117,11 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
+    const { data: profileRow } = await step('lecture profil', () =>
+      supabase.from('profiles').select('plan').eq('id', userId).single()
+    )
+    const plan: string = profileRow?.plan ?? 'gratuit'
+
     const { data: existing } = await step('lecture cache radar_snapshots', () =>
       supabase
         .from('radar_snapshots')
@@ -111,7 +133,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     )
 
     if (existing && existing.documents_count === documents.length) {
-      res.status(200).json({ data: existing.data, documents_count: existing.documents_count })
+      res.status(200).json({ data: restrictForPlan(existing.data, plan), documents_count: existing.documents_count })
       return
     }
 
@@ -164,7 +186,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       })
     })
 
-    res.status(200).json({ data: radarData, documents_count: documents.length })
+    res.status(200).json({ data: restrictForPlan(radarData, plan), documents_count: documents.length })
   } catch (err: any) {
     console.error('[radar] Erreur:', err, 'cause:', err?.cause)
     const cause = err?.cause?.message ?? err?.cause

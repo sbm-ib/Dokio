@@ -2,9 +2,25 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { Profile } from '../types'
 
+// Limites côté client — purement pour l'affichage (compteur, désactivation
+// du bouton). La vraie limite est appliquée côté serveur (api/analyze.ts,
+// api/generate-letter.ts) ; ces valeurs doivent juste rester synchronisées
+// avec les USAGE_CONFIG de ces fichiers.
 const SCAN_LIMITS: Record<Profile['plan'], number> = {
   gratuit: 5,
-  premium: Infinity,
+  premium: 100,
+}
+
+const COURRIER_LIMITS: Record<Profile['plan'], number> = {
+  gratuit: 1,
+  premium: 30,
+}
+
+function remainingFor(count: number, resetDate: string | null, limit: number): number {
+  const now = new Date()
+  const reset = resetDate ? new Date(resetDate) : null
+  if (!reset || now >= reset) return limit
+  return Math.max(0, limit - count)
 }
 
 export function useProfile() {
@@ -24,41 +40,22 @@ export function useProfile() {
 
   const canAnalyze = (): boolean => {
     if (!profile) return false
-    const limit = SCAN_LIMITS[profile.plan]
-    const now = new Date()
-    const resetDate = profile.analyses_reset_date ? new Date(profile.analyses_reset_date) : null
-    if (!resetDate || now >= resetDate) return true
-    return (profile.analyses_count ?? 0) < limit
+    return remainingFor(profile.analyses_count ?? 0, profile.analyses_reset_date, SCAN_LIMITS[profile.plan]) > 0
   }
 
   const remainingAnalyses = (): number => {
     if (!profile) return 0
-    const limit = SCAN_LIMITS[profile.plan]
-    const now = new Date()
-    const resetDate = profile.analyses_reset_date ? new Date(profile.analyses_reset_date) : null
-    if (!resetDate || now >= resetDate) return limit
-    return Math.max(0, limit - (profile.analyses_count ?? 0))
+    return remainingFor(profile.analyses_count ?? 0, profile.analyses_reset_date, SCAN_LIMITS[profile.plan])
   }
 
-  const incrementAnalysisCount = async () => {
-    if (!profile) return
-    const now = new Date()
-    const resetDate = profile.analyses_reset_date ? new Date(profile.analyses_reset_date) : null
+  const canGenerateLetter = (): boolean => {
+    if (!profile) return false
+    return remainingFor(profile.courriers_count ?? 0, profile.courriers_reset_date, COURRIER_LIMITS[profile.plan]) > 0
+  }
 
-    let newCount = (profile.analyses_count ?? 0) + 1
-    let newResetDate = profile.analyses_reset_date
-
-    if (!resetDate || now >= resetDate) {
-      newCount = 1
-      const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      newResetDate = next.toISOString()
-    }
-
-    await supabase
-      .from('profiles')
-      .update({ analyses_count: newCount, analyses_reset_date: newResetDate })
-      .eq('id', profile.id)
-    await refreshProfile()
+  const remainingCourriers = (): number => {
+    if (!profile) return 0
+    return remainingFor(profile.courriers_count ?? 0, profile.courriers_reset_date, COURRIER_LIMITS[profile.plan])
   }
 
   const deleteAllData = async () => {
@@ -74,5 +71,10 @@ export function useProfile() {
     await supabase.auth.signOut()
   }
 
-  return { profile, updateProfile, canAnalyze, remainingAnalyses, incrementAnalysisCount, deleteAllData }
+  return {
+    profile, updateProfile,
+    canAnalyze, remainingAnalyses,
+    canGenerateLetter, remainingCourriers,
+    deleteAllData,
+  }
 }

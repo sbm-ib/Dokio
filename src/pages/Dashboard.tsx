@@ -66,7 +66,6 @@ export default function Dashboard() {
         loading={radarLoading}
         error={radarError}
         documents={documents}
-        isPremium={isPremium}
         onUpgradeClick={() => setShowUpgrade(true)}
       />
 

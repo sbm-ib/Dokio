@@ -127,6 +127,45 @@ function AnticipationCard({ anticipation }: { anticipation: RadarAnticipation })
   )
 }
 
+function PlaceholderActionCard() {
+  return (
+    <div className="rounded-xl border border-gray-100 p-3">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="h-3.5 bg-gray-200 rounded w-2/3" />
+        <div className="h-4 bg-gray-200 rounded-full w-14 shrink-0" />
+      </div>
+      <div className="h-3 bg-gray-100 rounded w-full mb-1.5" />
+      <div className="h-3 bg-gray-100 rounded w-4/5" />
+    </div>
+  )
+}
+
+function PlaceholderAnticipationCard() {
+  return (
+    <div className="bg-white border border-gray-100 rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-7 h-7 rounded-full bg-gray-100 shrink-0" />
+        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+      </div>
+      <div className="h-3 bg-gray-100 rounded w-full mb-1.5" />
+      <div className="h-3 bg-gray-100 rounded w-2/3" />
+    </div>
+  )
+}
+
+function PlaceholderConnexionCard() {
+  return (
+    <div className="bg-paperliss-light border-l-4 border-paperliss rounded-2xl p-4">
+      <div className="flex gap-1.5 mb-2">
+        <div className="h-5 bg-white/70 rounded-full w-20" />
+        <div className="h-5 bg-white/70 rounded-full w-20" />
+      </div>
+      <div className="h-3 bg-white/50 rounded w-full mb-1.5" />
+      <div className="h-3 bg-white/50 rounded w-3/4" />
+    </div>
+  )
+}
+
 const CONNEXION_PREVIEW_COUNT = 3
 
 function ConnexionDocChip({ id, docsById }: { id: string; docsById: Map<string, Document> }) {
@@ -188,11 +227,10 @@ interface Props {
   loading: boolean
   error: string | null
   documents: Document[]
-  isPremium: boolean
   onUpgradeClick: () => void
 }
 
-export default function RadarPanel({ data, loading, error, documents, isPremium, onUpgradeClick }: Props) {
+export default function RadarPanel({ data, loading, error, documents, onUpgradeClick }: Props) {
   const docsById = useMemo(() => new Map(documents.map(d => [d.id, d])), [documents])
 
   if (documents.length === 0) return null
@@ -204,8 +242,14 @@ export default function RadarPanel({ data, loading, error, documents, isPremium,
     data.argent_en_danger.total_estime_eur > 0
   )
 
+  const locked = !!data?.locked_counts
+  const lockedCounts = data?.locked_counts
+  const hasLockedContent = !!lockedCounts && (
+    lockedCounts.actions_semaine > 0 || lockedCounts.anticipations > 0 || lockedCounts.connexions > 0
+  )
+
   const hasDetails = !!data && (
-    data.actions_semaine.length > 0 || data.anticipations.length > 0 || data.connexions.length > 0
+    data.actions_semaine.length > 0 || data.anticipations.length > 0 || data.connexions.length > 0 || hasLockedContent
   )
 
   return (
@@ -238,7 +282,7 @@ export default function RadarPanel({ data, loading, error, documents, isPremium,
           )}
 
           {hasDetails && (
-            isPremium ? (
+            !locked ? (
               <div className="space-y-6">
                 {data.actions_semaine.length > 0 && <NextActionSection actions={data.actions_semaine} />}
 
@@ -266,15 +310,25 @@ export default function RadarPanel({ data, loading, error, documents, isPremium,
             ) : (
               <div className="relative">
                 <div className="space-y-6 blur-sm pointer-events-none select-none">
-                  {data.actions_semaine.length > 0 && <NextActionSection actions={data.actions_semaine} />}
-                  {data.anticipations.length > 0 && (
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {data.anticipations.map((a, i) => <AnticipationCard key={i} anticipation={a} />)}
+                  {(lockedCounts?.actions_semaine ?? 0) > 0 && (
+                    <div className="space-y-2">
+                      {Array.from({ length: Math.min(lockedCounts!.actions_semaine, 3) }).map((_, i) => (
+                        <PlaceholderActionCard key={i} />
+                      ))}
                     </div>
                   )}
-                  {data.connexions.length > 0 && (
+                  {(lockedCounts?.anticipations ?? 0) > 0 && (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {Array.from({ length: Math.min(lockedCounts!.anticipations, 4) }).map((_, i) => (
+                        <PlaceholderAnticipationCard key={i} />
+                      ))}
+                    </div>
+                  )}
+                  {(lockedCounts?.connexions ?? 0) > 0 && (
                     <div className="space-y-3">
-                      {data.connexions.map((c, i) => <ConnexionCard key={i} connexion={c} docsById={docsById} />)}
+                      {Array.from({ length: Math.min(lockedCounts!.connexions, 2) }).map((_, i) => (
+                        <PlaceholderConnexionCard key={i} />
+                      ))}
                     </div>
                   )}
                 </div>

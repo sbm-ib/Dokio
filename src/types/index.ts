@@ -16,6 +16,8 @@ export interface Profile {
   date_rappel_exacte: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
+  courriers_count: number
+  courriers_reset_date: string | null
   created_at: string
   updated_at: string
 }
@@ -91,6 +93,12 @@ export interface RadarConnexion {
   lien: string
 }
 
+export interface RadarLockedCounts {
+  actions_semaine: number
+  anticipations: number
+  connexions: number
+}
+
 export interface RadarData {
   argent_qui_rentre: RadarArgent
   argent_en_danger: RadarArgent
@@ -98,6 +106,7 @@ export interface RadarData {
   anticipations: RadarAnticipation[]
   connexions: RadarConnexion[]
   resume_situation: string
+  locked_counts?: RadarLockedCounts
 }
 
 export interface AIAnalysisResult {

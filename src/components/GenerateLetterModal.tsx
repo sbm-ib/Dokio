@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { useProfile } from '../hooks/useProfile'
 import { supabase } from '../lib/supabase'
 import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, buildExpediteur, FREE_FORM_TYPE, type LetterType } from '../lib/letterTypes'
 import { getDocLabel, formatDate } from '../lib/utils'
 import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
+import UpgradeModal from './UpgradeModal'
 import type { Document, LetterResult } from '../types'
 import toast from 'react-hot-toast'
 
@@ -14,7 +16,8 @@ interface Props {
 }
 
 export default function GenerateLetterModal({ doc, onClose }: Props) {
-  const { profile, user } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
+  const { canGenerateLetter } = useProfile()
   const suggestions = suggestLetterTypes(doc)
   const [selectedType, setSelectedType] = useState<LetterType>(() => suggestions[0])
   const [showAllTypes, setShowAllTypes] = useState(false)
@@ -60,15 +63,23 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
           type_courrier: selectedType,
           demande_libre: isFreeForm ? demandeLibre.trim() : undefined,
           expediteur,
+          userId: user?.id,
         }),
       })
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error ?? 'Erreur serveur')
+      if (!res.ok) {
+        if (body.code === 'limit_reached') {
+          await refreshProfile()
+          return
+        }
+        throw new Error(body.error ?? 'Erreur serveur')
+      }
       const letter: LetterResult = body.data
       setResult(letter)
       setDestinataire(letter.destinataire)
       setObjet(letter.objet)
       setCorps(letter.corps)
+      await refreshProfile()
     } catch (err: any) {
       console.error('[GenerateLetterModal] error:', err)
       setError(err?.message ?? 'Erreur inconnue')
@@ -130,6 +141,17 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  if (!result && !canGenerateLetter()) {
+    return (
+      <UpgradeModal
+        onClose={onClose}
+        badgeLabel="Courriers"
+        title="Passe Premium pour générer plus de courriers"
+        description="Le plan gratuit permet de générer 1 courrier par mois. Passe à Premium pour des courriers illimités."
+      />
+    )
   }
 
   return (

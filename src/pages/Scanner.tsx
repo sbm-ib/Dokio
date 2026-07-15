@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { extractText, extractTextFromEml, extractTextFromDocx, anonymize } from '../lib/ocr'
-import { analyzeDocument } from '../lib/ai'
+import { analyzeDocument, LimitReachedError } from '../lib/ai'
 import { useAuth } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
 import UpgradeModal from '../components/UpgradeModal'
@@ -27,8 +27,8 @@ const PROGRESS_LABELS = [
 ]
 
 export default function Scanner() {
-  const { user } = useAuth()
-  const { canAnalyze, remainingAnalyses, incrementAnalysisCount } = useProfile()
+  const { user, refreshProfile } = useAuth()
+  const { profile, canAnalyze, remainingAnalyses } = useProfile()
   const navigate = useNavigate()
 
   const [step, setStep] = useState<Step>('upload')
@@ -137,7 +137,7 @@ export default function Scanner() {
 
       setProgressLabel(PROGRESS_LABELS[3])
       setProgress(65)
-      const analysis = await analyzeDocument(anonText)
+      const analysis = await analyzeDocument(anonText, user.id)
       setProgress(90)
 
       setProgressLabel(PROGRESS_LABELS[4])
@@ -160,12 +160,18 @@ export default function Scanner() {
 
       if (dbErr) throw new Error(dbErr.message)
 
-      await incrementAnalysisCount()
+      await refreshProfile()
       setProgress(100)
       setResult(analysis)
       setStep('result')
       toast.success('Document analysé avec succès !')
     } catch (err: unknown) {
+      if (err instanceof LimitReachedError) {
+        setShowUpgrade(true)
+        setStep('upload')
+        setProgress(0)
+        return
+      }
       console.error('[PaperLiss] Erreur analyse:', err)
       const msg = err instanceof Error ? err.message : String(err)
       const friendly = msg.includes('Gemini') ? `Erreur IA — ${msg}`
@@ -194,7 +200,14 @@ export default function Scanner() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Scanner un document</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Scanner un document</h1>
+          {profile?.plan === 'gratuit' && (
+            <span className="text-xs font-semibold text-paperliss bg-paperliss-light px-2.5 py-1 rounded-full shrink-0">
+              {profile.analyses_count ?? 0} / 5 analyses ce mois
+            </span>
+          )}
+        </div>
         <p className="text-gray-500 text-sm mt-1">Upload ton courrier, l'IA l'analyse et t'explique quoi faire.</p>
       </div>
 
