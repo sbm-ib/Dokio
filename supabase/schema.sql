@@ -87,8 +87,14 @@ CREATE TABLE IF NOT EXISTS public.courriers (
   destinataire        text,
   objet               text,
   contenu             text NOT NULL,
+  conseils_envoi      text,
+  champs_a_completer  jsonb,
   created_at          timestamptz NOT NULL DEFAULT now()
 );
+
+-- Si la table existait déjà avant l'ajout de ces 2 colonnes, colle ceci dans l'éditeur SQL Supabase :
+-- ALTER TABLE public.courriers ADD COLUMN IF NOT EXISTS conseils_envoi text;
+-- ALTER TABLE public.courriers ADD COLUMN IF NOT EXISTS champs_a_completer jsonb;
 
 -- ============================================================
 -- ROW LEVEL SECURITY

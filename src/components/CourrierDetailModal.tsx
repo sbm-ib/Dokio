@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Loader2, Copy, Check, Save, Download, Trash2 } from 'lucide-react'
+import { X, Loader2, Copy, Check, Save, Download, Trash2, AlertTriangle, FileText } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useCourriers } from '../hooks/useCourriers'
 import { buildExpediteur, getLetterTypeLabel } from '../lib/letterTypes'
@@ -95,6 +95,22 @@ export default function CourrierDetailModal({ courrier, onClose }: Props) {
         </div>
 
         <div className="space-y-5">
+          {courrier.champs_a_completer && courrier.champs_a_completer.length > 0 && (
+            <div className="bg-warning-light rounded-xl p-4">
+              <p className="flex items-center gap-2 text-sm font-bold text-warning mb-2">
+                <AlertTriangle size={16} />
+                {courrier.champs_a_completer.length} champ{courrier.champs_a_completer.length > 1 ? 's' : ''} à compléter avant l'envoi
+              </p>
+              <ul className="flex flex-wrap gap-1.5">
+                {courrier.champs_a_completer.map((f, i) => (
+                  <li key={i} className="text-xs font-medium text-warning bg-white/60 px-2 py-1 rounded-lg">
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Destinataire</label>
             <input
@@ -124,6 +140,16 @@ export default function CourrierDetailModal({ courrier, onClose }: Props) {
               className="w-full px-4 py-4 rounded-xl border border-gray-200 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap outline-none focus:ring-2 focus:ring-paperliss transition resize-y"
             />
           </div>
+
+          {courrier.conseils_envoi && (
+            <div className="bg-paperliss-light rounded-xl p-4 flex items-start gap-2.5">
+              <FileText size={16} className="text-paperliss shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-paperliss uppercase tracking-wide mb-1">Conseils d'envoi</p>
+                <p className="text-sm text-paperliss">{courrier.conseils_envoi}</p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button

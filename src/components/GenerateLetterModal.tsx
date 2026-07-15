@@ -119,6 +119,8 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
         destinataire,
         objet,
         contenu: corps,
+        conseils_envoi: result?.conseils_envoi ?? null,
+        champs_a_completer: result?.champs_a_completer ?? null,
       })
       if (saveErr) throw saveErr
       toast.success('Courrier enregistré !')

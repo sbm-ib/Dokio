@@ -56,6 +56,8 @@ export interface Courrier {
   destinataire: string | null
   objet: string | null
   contenu: string
+  conseils_envoi: string | null
+  champs_a_completer: string[] | null
   created_at: string
 }
 
