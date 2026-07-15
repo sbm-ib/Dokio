@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, type LetterType } from '../lib/letterTypes'
+import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, FREE_FORM_TYPE, type LetterType } from '../lib/letterTypes'
 import { getDocLabel, formatDate } from '../lib/utils'
 import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
 import type { Document, LetterResult, Profile } from '../types'
@@ -35,10 +35,18 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
   const [corps, setCorps] = useState('')
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [demandeLibre, setDemandeLibre] = useState('')
 
   const profileIncomplete = !profile?.prenom && !profile?.nom || !profile?.adresse
+  const isFreeForm = selectedType === FREE_FORM_TYPE
+  const demandeLibreTooShort = isFreeForm && demandeLibre.trim().length < 15
 
   const handleGenerate = async () => {
+    if (demandeLibreTooShort) {
+      toast.error('Décris ta situation avec un peu plus de détails.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -58,6 +66,7 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
             reference: null,
           },
           type_courrier: selectedType,
+          demande_libre: isFreeForm ? demandeLibre.trim() : undefined,
           expediteur,
         }),
       })
@@ -170,7 +179,7 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
 
             {showAllTypes && (
               <div className="space-y-2 mb-4">
-                {LETTER_TYPES.map(({ value, label }) => (
+                {LETTER_TYPES.filter(({ value }) => value !== FREE_FORM_TYPE).map(({ value, label }) => (
                   <button
                     key={value}
                     onClick={() => setSelectedType(value)}
@@ -183,6 +192,32 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
                     {label}
                   </button>
                 ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setSelectedType(FREE_FORM_TYPE)}
+              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold border-2 border-dashed transition-colors mb-4 ${
+                isFreeForm
+                  ? 'border-paperliss bg-paperliss-light text-paperliss'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
+              }`}
+            >
+              {getLetterTypeLabel(FREE_FORM_TYPE)}
+            </button>
+
+            {isFreeForm && (
+              <div className="mb-4">
+                <textarea
+                  value={demandeLibre}
+                  onChange={e => setDemandeLibre(e.target.value)}
+                  rows={3}
+                  placeholder="Ex : Je veux demander un étalement de ma dette sur 6 mois car j'ai perdu mon emploi."
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-800 leading-relaxed outline-none focus:ring-2 focus:ring-paperliss transition resize-y"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Décris ta situation en une ou deux phrases claires (15 caractères minimum).
+                </p>
               </div>
             )}
 
@@ -203,7 +238,7 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
 
             <button
               onClick={handleGenerate}
-              disabled={loading}
+              disabled={loading || demandeLibreTooShort}
               className="w-full flex items-center justify-center gap-2 bg-paperliss hover:bg-paperliss-dark disabled:opacity-60 text-white font-semibold rounded-xl transition-colors min-h-[48px]"
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

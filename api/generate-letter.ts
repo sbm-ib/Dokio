@@ -6,8 +6,11 @@ On te donne :
 - Les données d'un document administratif que l'utilisateur a reçu (organisme, montant, date limite, référence, résumé).
 - Le TYPE de courrier qu'il veut envoyer.
 - Ses coordonnées.
+- Éventuellement, une "demande_libre" : l'utilisateur a décrit sa situation avec ses propres mots au lieu de choisir un type prédéfini.
 
-Rédige la lettre COMPLÈTE, prête à envoyer, déjà remplie avec les informations du document. N'invente JAMAIS de données : si une information manque (numéro de dossier, adresse exacte de l'organisme), insère un champ à compléter entre crochets, par exemple [Votre numéro de dossier].
+Si "demande_libre" est fournie, c'est elle qui exprime l'INTENTION PRINCIPALE de la lettre — rédige pour y répondre précisément, tout en t'appuyant sur les données du document (organisme, montant, date, référence) pour que les faits cités soient exacts.
+
+Rédige la lettre COMPLÈTE, prête à envoyer, déjà remplie avec les informations du document. N'invente JAMAIS de données : si une information manque (numéro de dossier, adresse exacte de l'organisme, ou un détail que la demande libre n'a pas précisé), insère un champ à compléter entre crochets, par exemple [Votre numéro de dossier].
 
 Règles de rédaction :
 - Ton formel, poli, mais ferme. Jamais agressif.
@@ -39,7 +42,10 @@ const VALID_TYPES = [
   'demande_information',
   'recours',
   'mise_en_demeure',
+  'autre',
 ]
+
+const MIN_DEMANDE_LIBRE_LENGTH = 15
 
 export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -52,6 +58,7 @@ export default async function handler(req: any, res: any): Promise<void> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
   const document = body.document
   const typeCourrier: string | undefined = body.type_courrier
+  const demandeLibre: string | undefined = typeof body.demande_libre === 'string' ? body.demande_libre.trim() : undefined
   const expediteur = body.expediteur
 
   if (!document || typeof document !== 'object') {
@@ -60,6 +67,10 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
   if (!typeCourrier || !VALID_TYPES.includes(typeCourrier)) {
     res.status(400).json({ error: `type_courrier invalide. Valeurs acceptées : ${VALID_TYPES.join(', ')}` })
+    return
+  }
+  if (typeCourrier === 'autre' && (!demandeLibre || demandeLibre.length < MIN_DEMANDE_LIBRE_LENGTH)) {
+    res.status(400).json({ error: 'Décris ta demande avec un peu plus de détails avant de générer la lettre.' })
     return
   }
   if (!expediteur || typeof expediteur !== 'object') {
@@ -87,7 +98,7 @@ export default async function handler(req: any, res: any): Promise<void> {
         system: SYSTEM_PROMPT,
         messages: [{
           role: 'user',
-          content: `Document source, type de courrier demandé et coordonnées de l'expéditeur :\n\n${JSON.stringify({ document, type_courrier: typeCourrier, expediteur })}`,
+          content: `Document source, type de courrier demandé et coordonnées de l'expéditeur :\n\n${JSON.stringify({ document, type_courrier: typeCourrier, demande_libre: demandeLibre ?? null, expediteur })}`,
         }],
       }),
     })

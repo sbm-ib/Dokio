@@ -8,6 +8,10 @@ export type LetterType =
   | 'demande_information'
   | 'recours'
   | 'mise_en_demeure'
+  | 'autre'
+
+// Le type qui déclenche le champ de demande libre dans l'UI.
+export const FREE_FORM_TYPE: LetterType = 'autre'
 
 // Intitulés en langage courant — le type technique (à gauche) est celui
 // envoyé à /api/generate-letter.ts, l'utilisateur ne voit que le label.
@@ -19,6 +23,7 @@ export const LETTER_TYPES: { value: LetterType; label: string }[] = [
   { value: 'demande_information', label: 'Je demande une information ou une explication' },
   { value: 'recours', label: 'Je fais un recours contre une décision' },
   { value: 'mise_en_demeure', label: 'Je mets en demeure (dernier recours avant action)' },
+  { value: 'autre', label: 'Autre demande — je décris ma situation moi-même' },
 ]
 
 const LETTER_TYPE_LABELS: Record<LetterType, string> = Object.fromEntries(
