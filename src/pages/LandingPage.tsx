@@ -103,7 +103,7 @@ export default function LandingPage() {
             Essayer gratuitement
             <ArrowRight size={20} />
           </button>
-          <p className="text-sm text-gray-400 mt-3">Sans carte bancaire · 3 analyses offertes</p>
+          <p className="text-sm text-gray-400 mt-3">Sans carte bancaire · 5 analyses offertes</p>
         </div>
       </section>
 
