@@ -23,6 +23,9 @@
     },
     "api/generate-letter.ts": {
       "maxDuration": 30
+    },
+    "api/send-reminders.ts": {
+      "maxDuration": 30
     }
   }
 }
