@@ -1,5 +1,5 @@
-// TODO sécurité: vérifier un token signé au lieu de faire confiance au userId du body
 import { getUsageStatus, incrementUsage } from '../lib/usageLimits.js'
+import { getAuthenticatedUserId } from '../lib/auth.js'
 
 const USAGE_CONFIG = {
   countColumn: 'analyses_count' as const,
@@ -29,21 +29,24 @@ Contexte : SPF Finances = impôts, CPAS = aide sociale, Mutualité = assurance m
 export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') { res.status(200).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Méthode non autorisée' }); return }
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
   const text: string | undefined = body.text
-  const userId: string | undefined = body.userId
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: 'Texte trop court pour être analysé' })
     return
   }
-  if (!userId) {
-    res.status(400).json({ error: 'userId requis' })
+
+  let userId: string
+  try {
+    userId = await getAuthenticatedUserId(req)
+  } catch (err: any) {
+    res.status(401).json({ error: err?.message ?? 'Authentification requise' })
     return
   }
 

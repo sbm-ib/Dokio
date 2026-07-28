@@ -1,6 +1,6 @@
-// TODO sécurité: vérifier un token signé au lieu de faire confiance au userId du body
 import { parseAiJson } from '../lib/parse-ai-json.js'
 import { getUsageStatus, incrementUsage } from '../lib/usageLimits.js'
+import { getAuthenticatedUserId } from '../lib/auth.js'
 
 const USAGE_CONFIG = {
   countColumn: 'courriers_count' as const,
@@ -59,7 +59,7 @@ const MIN_DEMANDE_LIBRE_LENGTH = 15
 export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') { res.status(200).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Méthode non autorisée' }); return }
@@ -69,16 +69,20 @@ export default async function handler(req: any, res: any): Promise<void> {
   const typeCourrier: string | undefined = body.type_courrier
   const demandeLibre: string | undefined = typeof body.demande_libre === 'string' ? body.demande_libre.trim() : undefined
   const expediteur = body.expediteur
-  const userId: string | undefined = body.userId
 
   if (!document || typeof document !== 'object') {
     res.status(400).json({ error: 'document requis' })
     return
   }
-  if (!userId) {
-    res.status(400).json({ error: 'userId requis' })
+
+  let userId: string
+  try {
+    userId = await getAuthenticatedUserId(req)
+  } catch (err: any) {
+    res.status(401).json({ error: err?.message ?? 'Authentification requise' })
     return
   }
+
   if (!typeCourrier || !VALID_TYPES.includes(typeCourrier)) {
     res.status(400).json({ error: `type_courrier invalide. Valeurs acceptées : ${VALID_TYPES.join(', ')}` })
     return

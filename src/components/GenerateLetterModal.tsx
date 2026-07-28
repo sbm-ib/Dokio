@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X, Loader2, FileText, AlertTriangle, Send, Copy, Check, Save, Download } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
-import { supabase } from '../lib/supabase'
+import { supabase, getAuthHeader } from '../lib/supabase'
 import { LETTER_TYPES, suggestLetterTypes, getLetterTypeLabel, buildExpediteur, FREE_FORM_TYPE, type LetterType } from '../lib/letterTypes'
 import { getDocLabel, formatDate } from '../lib/utils'
 import { downloadLetterPdf, buildLetterFilename } from '../lib/letterPdf'
@@ -50,7 +50,7 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
     try {
       const res = await fetch('/api/generate-letter', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
         body: JSON.stringify({
           document: {
             organisme: doc.organisme_detecte,
@@ -63,7 +63,6 @@ export default function GenerateLetterModal({ doc, onClose }: Props) {
           type_courrier: selectedType,
           demande_libre: isFreeForm ? demandeLibre.trim() : undefined,
           expediteur,
-          userId: user?.id,
         }),
       })
       const body = await res.json()

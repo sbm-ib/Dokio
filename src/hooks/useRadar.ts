@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './useAuth'
+import { getAuthHeader } from '../lib/supabase'
 import type { RadarData } from '../types'
 
 export function useRadar(documentsCount: number) {
@@ -20,11 +21,12 @@ export function useRadar(documentsCount: number) {
     setLoading(true)
     setError(null)
 
-    fetch('/api/radar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    })
+    getAuthHeader()
+      .then(authHeader => fetch('/api/radar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({}),
+      }))
       .then(async res => {
         // DEBUG TEMPORAIRE : on lit le texte brut avant tout parsing, pour ne
         // jamais avaler une réponse inattendue en silence (à retirer une fois

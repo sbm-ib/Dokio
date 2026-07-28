@@ -137,7 +137,7 @@ export default function Scanner() {
 
       setProgressLabel(PROGRESS_LABELS[3])
       setProgress(65)
-      const analysis = await analyzeDocument(anonText, user.id)
+      const analysis = await analyzeDocument(anonText)
       setProgress(90)
 
       setProgressLabel(PROGRESS_LABELS[4])

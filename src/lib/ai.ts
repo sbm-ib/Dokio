@@ -1,14 +1,15 @@
 import type { AIAnalysisResult } from '../types'
+import { getAuthHeader } from './supabase'
 
 export class LimitReachedError extends Error {}
 
-export async function analyzeDocument(anonymizedText: string, userId: string): Promise<AIAnalysisResult> {
+export async function analyzeDocument(anonymizedText: string): Promise<AIAnalysisResult> {
   let response: Response
   try {
     response = await fetch('/api/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: anonymizedText, userId }),
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
+      body: JSON.stringify({ text: anonymizedText }),
     })
   } catch {
     throw new Error('Impossible de joindre le serveur — vérifie ta connexion internet.')
