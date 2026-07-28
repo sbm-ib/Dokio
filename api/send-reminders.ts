@@ -7,8 +7,10 @@
 // Resend). Pour passer en vrai envoi plus tard, il suffira de remplacer
 // "to: testEmail" par l'email réel une fois un domaine vérifié sur Resend.
 //
-// Déclenchement : manuel pour l'instant (pas de cron), en ouvrant l'URL dans
-// le navigateur — voir les instructions de test données à part.
+// Déclenchement : protégé par le header "x-cron-secret" (même mécanisme que
+// api/send-push.ts) — plus question d'ouvrir l'URL dans le navigateur, il
+// faut envoyer ce header (voir requête curl dans le README / vos notes de
+// déploiement).
 
 import { Resend } from 'resend'
 import { getSupabaseAdmin } from '../lib/supabase-admin.js'
@@ -24,6 +26,12 @@ function dansNJours(nombreDeJours: number): string {
 export default async function handler(req: any, res: any): Promise<void> {
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.status(405).json({ error: 'Méthode non autorisée' })
+    return
+  }
+
+  const secret = req.headers['x-cron-secret']
+  if (secret !== process.env.CRON_SECRET) {
+    res.status(401).json({ error: 'Unauthorized' })
     return
   }
 
@@ -58,19 +66,16 @@ export default async function handler(req: any, res: any): Promise<void> {
       return echeance === dateDans7Jours || echeance === dateDemain
     })
 
-    const resultats: {
-      user_id: string
-      email_reel: string | null
-      objet: string | null
-      echeance: string
-    }[] = []
+    let nombreEmailsEnvoyes = 0
 
     for (const courrier of aRappeler as any[]) {
       const echeance: string = courrier.documents.date_limite
 
       // L'email réel n'est pas dans notre table "profiles" — il faut le
-      // demander à l'API d'authentification de Supabase. On ne s'en sert
-      // que pour l'afficher dans le résumé, jamais pour l'envoi en mode test.
+      // demander à l'API d'authentification de Supabase. On ne s'en sert que
+      // dans le corps de l'email de test (visible seulement par toi, sur
+      // TEST_EMAIL) — jamais pour l'envoi réel, et jamais renvoyé dans la
+      // réponse JSON de cette route.
       const { data: userData } = await supabase.auth.admin.getUserById(courrier.user_id)
       const emailReel = userData?.user?.email ?? null
 
@@ -89,14 +94,13 @@ export default async function handler(req: any, res: any): Promise<void> {
         ].join('\n'),
       })
 
-      resultats.push({ user_id: courrier.user_id, email_reel: emailReel, objet: courrier.objet, echeance })
+      nombreEmailsEnvoyes++
     }
 
     res.status(200).json({
       mode: 'test',
       tous_les_emails_envoyes_a: testEmail,
-      nombre_emails_envoyes: resultats.length,
-      details: resultats,
+      nombre_emails_envoyes: nombreEmailsEnvoyes,
     })
   } catch (err: any) {
     console.error('[send-reminders] Erreur:', err)
