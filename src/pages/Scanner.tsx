@@ -4,7 +4,7 @@ import {
   Upload, ScanLine, FileText, CheckCircle, AlertTriangle,
   ExternalLink, X, Camera, Loader2, ClipboardPaste,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, getSignedDocumentUrl } from '../lib/supabase'
 import { extractText, extractTextFromEml, extractTextFromDocx, anonymize } from '../lib/ocr'
 import { analyzeDocument, LimitReachedError } from '../lib/ai'
 import { useAuth } from '../hooks/useAuth'
@@ -130,8 +130,7 @@ export default function Scanner() {
           .from('documents')
           .upload(path, file, { contentType: file.type })
         if (!storageErr) {
-          const { data } = supabase.storage.from('documents').getPublicUrl(path)
-          fileUrl = data.publicUrl
+          fileUrl = await getSignedDocumentUrl(path)
         }
       }
 

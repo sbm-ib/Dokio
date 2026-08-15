@@ -163,11 +163,15 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 -- STORAGE : bucket "documents" pour les fichiers uploadés
 -- ============================================================
 
+-- Bucket privé : les fichiers ne sont accessibles que via une URL signée
+-- (createSignedUrl côté client), jamais par URL publique directe.
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('documents', 'documents', true)
+VALUES ('documents', 'documents', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Politique storage : chaque user gère son dossier
+-- (la policy SELECT ci-dessous est aussi ce qui autorise createSignedUrl :
+-- Supabase vérifie cette policy avec le JWT de l'appelant avant de signer)
 CREATE POLICY "storage: upload propre" ON storage.objects
   FOR INSERT WITH CHECK (bucket_id = 'documents' AND auth.uid()::text = (storage.foldername(name))[1]);
 

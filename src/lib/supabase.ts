@@ -15,3 +15,18 @@ export async function getAuthHeader(): Promise<Record<string, string>> {
   const token = data.session?.access_token
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
+
+/**
+ * URL temporaire (expire après `expiresInSeconds`) pour accéder à un fichier
+ * du bucket privé "documents". Le bucket n'étant plus public, c'est le seul
+ * moyen d'obtenir un lien de téléchargement — à régénérer à chaque usage,
+ * jamais à réutiliser un lien stocké au-delà de sa durée de vie.
+ */
+export async function getSignedDocumentUrl(path: string, expiresInSeconds = 3600): Promise<string | null> {
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, expiresInSeconds)
+  if (error) {
+    console.error('[getSignedDocumentUrl] Erreur:', error)
+    return null
+  }
+  return data.signedUrl
+}
