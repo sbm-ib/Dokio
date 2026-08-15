@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   adresse             text,
   code_postal         text,
   ville               text,
-  numero_secu         text,
   pays                text NOT NULL DEFAULT 'belgique' CHECK (pays IN ('belgique', 'france')),
   plan                text NOT NULL DEFAULT 'gratuit' CHECK (plan IN ('gratuit', 'premium')),
   analyses_count      integer NOT NULL DEFAULT 0,
