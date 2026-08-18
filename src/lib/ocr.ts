@@ -2,6 +2,40 @@ import { createWorker } from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
+interface PromiseWithResolvers<T> {
+  promise: Promise<T>
+  resolve: (value: T | PromiseLike<T>) => void
+  reject: (reason?: unknown) => void
+}
+
+declare global {
+  interface PromiseConstructor {
+    withResolvers?<T>(): PromiseWithResolvers<T>
+  }
+}
+
+// pdfjs-dist (à partir de la v4) utilise Promise.withResolvers() en interne,
+// dès le chargement d'un PDF. C'est une fonction très récente du JavaScript
+// (Safari 17.4+ / Chrome 119+ / Firefox 121+, début 2024) — absente sur pas
+// mal de navigateurs encore en circulation (vieux iPhone/iPad non mis à
+// jour, navigateurs intégrés aux applis type Instagram/Facebook, etc.).
+// Sans elle, pdf.js plante avec "undefined is not a function" dès qu'on
+// essaie d'ouvrir un PDF. On la fournit nous-mêmes si le navigateur ne l'a
+// pas.
+const hasNativePromiseWithResolvers = typeof Promise.withResolvers === 'function'
+console.log(`[ocr] Promise.withResolvers natif : ${hasNativePromiseWithResolvers ? 'oui' : 'non — polyfill appliqué'}`)
+if (!hasNativePromiseWithResolvers) {
+  Promise.withResolvers = function withResolvers<T>(): PromiseWithResolvers<T> {
+    let resolve!: (value: T | PromiseLike<T>) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+}
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 // Log visible dès le chargement du module : si tu ne vois jamais cette ligne
@@ -43,6 +77,18 @@ async function extractFromImage(file: File | Blob, onProgress: (pct: number) => 
   }
 }
 
+// Si l'erreur ressemble à "X is not a function" / "X.y is not a function"
+// (Chrome/Firefox/Safari le formulent tous un peu différemment), on l'isole
+// et on la logue à part pour repérer tout de suite quelle fonction manque,
+// plutôt que de fouiller une stack minifiée.
+function logIfMissingFunction(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err)
+  const match = message.match(/([\w.]+) is not a function/)
+  if (match) {
+    console.error(`[ocr] Fonction manquante détectée : "${match[1]}" — probablement une API non supportée par ce navigateur.`)
+  }
+}
+
 async function extractFromPDF(file: File, onProgress: (pct: number) => void): Promise<string> {
   onProgress(5)
   const buffer = await file.arrayBuffer()
@@ -57,6 +103,7 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     // on log l'erreur exacte et on arrête là — on ne doit JAMAIS retomber
     // sur un envoi d'octets bruts à l'IA.
     console.error('[ocr] Échec du chargement pdf.js :', err)
+    logIfMissingFunction(err)
     throw new Error(`Impossible de charger le PDF avec pdf.js : ${err instanceof Error ? err.message : String(err)}`, { cause: err })
   }
 
@@ -89,6 +136,7 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     return await ocrScannedPdf(pdf, onProgress)
   } catch (err) {
     console.error('[ocr] Échec de l\'extraction PDF :', err)
+    logIfMissingFunction(err)
     throw err
   } finally {
     await loadingTask.destroy()
