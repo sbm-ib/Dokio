@@ -1,6 +1,14 @@
 import { createWorker } from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
-import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+// On passe par notre propre point d'entrée (./pdfWorkerEntry.ts) plutôt que
+// par le fichier worker brut de pdfjs-dist : il pose le polyfill
+// Promise.withResolvers() DANS le contexte du Worker avant de charger le
+// vrai code de pdf.js — voir le commentaire dans ce fichier pour le détail.
+// `?worker&url` (et pas `?url`) est indispensable ici : c'est le seul
+// suffixe Vite qui empaquette correctement ce fichier comme un vrai worker
+// (résolution de son `import` interne incluse) tout en renvoyant une URL —
+// `?url` seul traite le fichier comme un asset brut et ignore son contenu.
+import pdfjsWorkerUrl from './pdfWorkerEntry.ts?worker&url'
 
 interface PromiseWithResolvers<T> {
   promise: Promise<T>
@@ -96,15 +104,29 @@ async function extractFromImage(file: File | Blob, onProgress: (pct: number) => 
   }
 }
 
-// Si l'erreur ressemble à "X is not a function" / "X.y is not a function"
-// (Chrome/Firefox/Safari le formulent tous un peu différemment), on l'isole
-// et on la logue à part pour repérer tout de suite quelle fonction manque,
-// plutôt que de fouiller une stack minifiée.
+// Isole et logue à part toute erreur "X is not a function", pour repérer
+// tout de suite une API manquante plutôt que de fouiller une stack minifiée.
+// Chrome/Firefox donnent le nom exact ("x.y is not a function") ; Safari, en
+// revanche, dit toujours "undefined is not a function (near '...')" — il
+// n'expose JAMAIS le vrai nom, seulement un extrait du code (souvent
+// minifié) autour du crash. Dans ce cas on affiche cet extrait et on liste
+// les suspects habituels plutôt que de prétendre avoir un nom exact.
 function logIfMissingFunction(err: unknown): void {
   const message = err instanceof Error ? err.message : String(err)
-  const match = message.match(/([\w.]+) is not a function/)
-  if (match) {
-    console.error(`[ocr] Fonction manquante détectée : "${match[1]}" — probablement une API non supportée par ce navigateur.`)
+
+  const namedMatch = message.match(/([\w.]+) is not a function/)
+  if (namedMatch && namedMatch[1] !== 'undefined') {
+    console.error(`[ocr] Fonction manquante détectée : "${namedMatch[1]}" — probablement une API non supportée par ce navigateur.`)
+    return
+  }
+
+  const safariMatch = message.match(/is not a function \(near '([^']*)'\)/)
+  if (safariMatch) {
+    console.error(
+      `[ocr] Erreur de type "fonction manquante" détectée (format Safari — le nom exact n'est pas fourni par ce navigateur). ` +
+      `Extrait du code au moment du crash : "${safariMatch[1]}". ` +
+      'Suspects habituels sur ce chemin : Promise.withResolvers, structuredClone, Object.hasOwn, OffscreenCanvas, ImageDecoder.',
+    )
   }
 }
 
@@ -177,21 +199,32 @@ async function ocrScannedPdf(
   try {
     const pageTexts: string[] = []
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : récupération...`)
       const page = await pdf.getPage(pageNum)
+
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : calcul du viewport (avant getViewport)`)
       const viewport = page.getViewport({ scale: OCR_RENDER_SCALE })
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : viewport ${viewport.width}x${viewport.height} (après getViewport)`)
+
       const canvas = document.createElement('canvas')
       canvas.width = Math.ceil(viewport.width)
       canvas.height = Math.ceil(viewport.height)
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : canvas créé ${canvas.width}x${canvas.height}`)
 
+      // Note : on ne fait PAS canvas.getContext('2d') nous-mêmes — page.render()
+      // s'en charge en interne (confirmé en lisant le code de pdfjs-dist).
+      // L'appeler nous-mêmes avant créerait un conflit (context déjà pris).
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : appel page.render() (avant render)`)
       await page.render({ canvas, viewport }).promise
-      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} rendue en image ${canvas.width}x${canvas.height}`)
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} rendue en image ${canvas.width}x${canvas.height} (après render)`)
 
       // Tesseract accepte directement un <canvas> (pas besoin de repasser
       // par un Blob intermédiaire) — un point de conversion en moins, donc
       // une source d'échec silencieux en moins.
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : envoi à Tesseract (avant recognize)`)
       const { data } = await worker.recognize(canvas)
       pageTexts.push(data.text)
-      console.log(`[ocr] OCR page ${pageNum}/${pdf.numPages} terminé : ${data.text.trim().length} caractère(s)`)
+      console.log(`[ocr] OCR page ${pageNum}/${pdf.numPages} terminé : ${data.text.trim().length} caractère(s) (après recognize)`)
 
       onProgress(20 + Math.round((pageNum / pdf.numPages) * 30)) // 20–50%
     }
