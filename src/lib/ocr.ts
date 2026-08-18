@@ -43,10 +43,29 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 // encore un ancien bundle JS (cache/service worker), pas ce fichier.
 console.log(`[ocr] pdf.js chargé — version ${pdfjsLib.version}, worker: ${pdfjsWorkerUrl}`)
 
-// En dessous de ce nombre de caractères utiles, on considère que le PDF n'a
-// pas de couche texte exploitable (cas d'un PDF scanné = juste une image) et
-// on bascule sur l'OCR page par page.
-const MIN_READABLE_LENGTH = 30
+// Seuils utilisés pour juger si la couche texte d'un PDF est un vrai texte
+// exploitable, ou juste un filigrane parasite. Beaucoup d'applis de scan
+// mobile (CamScanner et consorts) collent un filigrane textuel du type
+// "Numérisé avec XYZ - www.xyz.com" dans le PDF — ce texte est bien "réel"
+// et sélectionnable, mais ne contient aucune information du courrier. Avec
+// un seuil de longueur trop bas, ce filigrane suffit à passer le test et on
+// envoie alors CE filigrane à l'IA au lieu de basculer sur l'OCR — d'où un
+// PDF-photo qui ressort comme "illisible" alors que l'OCR n'a même pas
+// tourné. On exige donc à la fois une longueur ET un nombre de mots
+// minimum : un filigrane fait rarement plus d'une courte phrase.
+const MIN_READABLE_LENGTH = 150
+const MIN_READABLE_WORDS = 20
+
+function looksLikeRealText(text: string): boolean {
+  if (text.length < MIN_READABLE_LENGTH) return false
+  const wordCount = text.split(/\s+/).filter(Boolean).length
+  return wordCount >= MIN_READABLE_WORDS
+}
+
+// Résolution de rendu utilisée pour convertir une page PDF en image avant
+// OCR. scale: 2 ≈ 144 DPI, suffisant pour du texte imprimé net ; en dessous,
+// l'OCR devient nettement moins fiable sur du texte de petite taille.
+const OCR_RENDER_SCALE = 2
 
 export async function extractText(
   file: File,
@@ -123,16 +142,22 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     }
 
     const combined = pageTexts.join('\n\n').replace(/[ \t]+/g, ' ').trim()
-    console.log(`[ocr] Texte extrait via la couche texte du PDF : ${combined.length} caractère(s)`)
+    const wordCount = combined.split(/\s+/).filter(Boolean).length
+    console.log(
+      `[ocr] Couche texte du PDF : ${combined.length} caractère(s), ${wordCount} mot(s)` +
+      (combined.length > 0 ? ` — aperçu : "${combined.slice(0, 120)}${combined.length > 120 ? '…' : ''}"` : ''),
+    )
 
-    if (combined.length >= MIN_READABLE_LENGTH) {
+    if (looksLikeRealText(combined)) {
+      console.log('[ocr] Couche texte jugée exploitable — pas besoin d\'OCR')
       onProgress(50)
       return combined
     }
 
-    // 2e passage (fallback) : PDF scanné sans couche texte — on convertit
-    // chaque page en image et on OCR chaque image avec Tesseract.
-    console.log('[ocr] Couche texte quasi vide — bascule sur OCR (PDF probablement scanné)')
+    // 2e passage (fallback) : PDF scanné, ou couche texte insuffisante
+    // (filigrane d'appli de scan, page quasi vide…) — on convertit chaque
+    // page en image et on OCR chaque image avec Tesseract.
+    console.log('[ocr] Couche texte insuffisante — bascule OCR déclenchée (PDF probablement scanné)')
     return await ocrScannedPdf(pdf, onProgress)
   } catch (err) {
     console.error('[ocr] Échec de l\'extraction PDF :', err)
@@ -147,34 +172,43 @@ async function ocrScannedPdf(
   pdf: pdfjsLib.PDFDocumentProxy,
   onProgress: (pct: number) => void,
 ): Promise<string> {
+  console.log(`[ocr] Bascule OCR déclenchée — rendu à l'échelle ${OCR_RENDER_SCALE}, langues fra+eng`)
   const worker = await createWorker(['fra', 'eng'], 1)
   try {
     const pageTexts: string[] = []
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum)
-      const viewport = page.getViewport({ scale: 2 })
+      const viewport = page.getViewport({ scale: OCR_RENDER_SCALE })
       const canvas = document.createElement('canvas')
       canvas.width = Math.ceil(viewport.width)
       canvas.height = Math.ceil(viewport.height)
 
       await page.render({ canvas, viewport }).promise
+      console.log(`[ocr] Page ${pageNum}/${pdf.numPages} rendue en image ${canvas.width}x${canvas.height}`)
 
-      const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
-      if (blob) {
-        const { data } = await worker.recognize(blob)
-        pageTexts.push(data.text)
-      }
-      console.log(`[ocr] OCR page ${pageNum}/${pdf.numPages} terminé`)
+      // Tesseract accepte directement un <canvas> (pas besoin de repasser
+      // par un Blob intermédiaire) — un point de conversion en moins, donc
+      // une source d'échec silencieux en moins.
+      const { data } = await worker.recognize(canvas)
+      pageTexts.push(data.text)
+      console.log(`[ocr] OCR page ${pageNum}/${pdf.numPages} terminé : ${data.text.trim().length} caractère(s)`)
 
       onProgress(20 + Math.round((pageNum / pdf.numPages) * 30)) // 20–50%
     }
 
     onProgress(50)
     const combined = pageTexts.join('\n\n').trim()
-    console.log(`[ocr] Texte extrait via OCR (PDF scanné) : ${combined.length} caractère(s)`)
+    console.log(`[ocr] Texte extrait via OCR (PDF scanné) : ${combined.length} caractère(s) au total`)
+
+    // Si on arrive ici avec 0 caractère, l'OCR a bien tourné (les logs
+    // ci-dessus le prouvent) mais n'a rien trouvé d'exploitable — c'est un
+    // problème de qualité d'image, pas une panne technique. On ne dit donc
+    // jamais "illisible" ici : un vrai échec technique (rendu impossible,
+    // worker qui plante…) remonte comme une exception via le catch de
+    // extractFromPDF, pas comme ce message.
     return combined.length > 0
       ? combined
-      : '[Contenu du PDF non lisible, même après OCR — essaie avec une photo nette de chaque page]'
+      : '[Photo trop peu nette, mal cadrée ou mal éclairée pour être lue automatiquement — réessaie avec une photo bien nette, bien cadrée et sans reflet]'
   } finally {
     await worker.terminate()
   }
