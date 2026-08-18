@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { User, MapPin, Bell, CreditCard, Trash2, Save, Loader2, Star, Globe } from 'lucide-react'
 import { useProfile } from '../hooks/useProfile'
 import { useAuth } from '../hooks/useAuth'
+import { getAuthHeader } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
 export default function Profile() {
@@ -74,8 +75,8 @@ export default function Profile() {
     try {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, email: user.email, interval: billingInterval }),
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
+        body: JSON.stringify({ interval: billingInterval }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
@@ -93,8 +94,8 @@ export default function Profile() {
     try {
       const res = await fetch('/api/create-portal-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: profile.stripe_customer_id }),
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
+        body: JSON.stringify({}),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')

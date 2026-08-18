@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Zap, Check, Loader2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { getAuthHeader } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -27,8 +28,8 @@ export default function UpgradeModal({
     try {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, email: user.email }),
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
+        body: JSON.stringify({}),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')

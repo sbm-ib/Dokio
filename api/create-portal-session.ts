@@ -1,18 +1,20 @@
 import Stripe from 'stripe'
+import { getAuthenticatedUserId } from '../lib/auth.js'
+import { getSupabaseAdmin } from '../lib/supabase-admin.js'
 
 export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') { res.status(200).end(); return }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Méthode non autorisée' }); return }
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-  const customerId: string | undefined = body.customerId
-
-  if (!customerId) {
-    res.status(400).json({ error: 'customerId requis' })
+  let userId: string
+  try {
+    userId = await getAuthenticatedUserId(req)
+  } catch (err: any) {
+    res.status(401).json({ error: err?.message ?? 'Authentification requise' })
     return
   }
 
@@ -23,6 +25,20 @@ export default async function handler(req: any, res: any): Promise<void> {
   }
 
   try {
+    const supabase = getSupabaseAdmin()
+    const { data: profileRow, error: profileErr } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', userId)
+      .single()
+
+    if (profileErr || !profileRow?.stripe_customer_id) {
+      res.status(404).json({ error: 'Aucun abonnement Stripe associé à ce compte' })
+      return
+    }
+
+    const customerId: string = profileRow.stripe_customer_id
+
     const stripe = new Stripe(secretKey)
     const origin = req.headers.origin ?? `https://${req.headers.host}`
 
