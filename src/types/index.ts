@@ -118,6 +118,8 @@ export interface AIAnalysisResult {
   urgence: boolean
   lien_officiel: string | null
   montant_eur: number | null
+  /** true si le document était trop long et n'a été analysé que partiellement */
+  texte_tronque?: boolean
 }
 
 export interface LetterResult {

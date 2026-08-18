@@ -26,6 +26,13 @@ RÈGLE ABSOLUE pour categorie — utilise UNIQUEMENT ces valeurs exactes, rien d
 - "autres"     → tout ce qui ne rentre pas dans les 3 catégories ci-dessus
 Contexte : SPF Finances = impôts, CPAS = aide sociale, Mutualité = assurance maladie, ONSS = cotisations sociales.`
 
+// Limite de caractères envoyés à l'IA, pour garder un coût par analyse
+// prévisible. 20 000 caractères ≈ 15-20 pages de texte dense — largement
+// suffisant pour un courrier administratif classique, même sur plusieurs
+// pages. Au-delà, on tronque mais on le signale dans la réponse plutôt que
+// de le faire en silence.
+const MAX_TEXT_LENGTH = 20000
+
 export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -66,6 +73,8 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
+    const texteTronque = text.length > MAX_TEXT_LENGTH
+
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -77,7 +86,7 @@ export default async function handler(req: any, res: any): Promise<void> {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Document à analyser :\n\n${text.slice(0, 8000)}` }],
+        messages: [{ role: 'user', content: `Document à analyser :\n\n${text.slice(0, MAX_TEXT_LENGTH)}` }],
       }),
     })
 
@@ -123,6 +132,8 @@ export default async function handler(req: any, res: any): Promise<void> {
 
     const montant = typeof result.montant_eur === 'string' ? parseFloat(result.montant_eur) : result.montant_eur
     result.montant_eur = typeof montant === 'number' && !isNaN(montant) ? montant : null
+
+    result.texte_tronque = texteTronque
 
     await incrementUsage(userId, USAGE_CONFIG)
     res.status(200).json(result)

@@ -1,4 +1,13 @@
 import { createWorker } from 'tesseract.js'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
+
+// En dessous de ce nombre de caractères utiles, on considère que le PDF n'a
+// pas de couche texte exploitable (cas d'un PDF scanné = juste une image) et
+// on bascule sur l'OCR page par page.
+const MIN_READABLE_LENGTH = 30
 
 export async function extractText(
   file: File,
@@ -10,7 +19,7 @@ export async function extractText(
   return extractFromImage(file, onProgress)
 }
 
-async function extractFromImage(file: File, onProgress: (pct: number) => void): Promise<string> {
+async function extractFromImage(file: File | Blob, onProgress: (pct: number) => void): Promise<string> {
   const worker = await createWorker(['fra', 'eng'], 1, {
     logger: (m: { status: string; progress: number }) => {
       if (m.status === 'recognizing text') {
@@ -30,22 +39,72 @@ async function extractFromImage(file: File, onProgress: (pct: number) => void): 
 }
 
 async function extractFromPDF(file: File, onProgress: (pct: number) => void): Promise<string> {
-  onProgress(10)
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      onProgress(50)
-      const raw = reader.result as string
-      // Garder uniquement les caractères lisibles
-      const readable = raw
-        .replace(/[^\x20-\x7E\xC0-\xFF\n\r]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-      resolve(readable.length > 30 ? readable : '[Contenu PDF non lisible — convertis en image JPG pour une meilleure analyse]')
+  onProgress(5)
+  const buffer = await file.arrayBuffer()
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+  const pdf = await loadingTask.promise
+
+  try {
+    // 1er passage : lecture de la vraie couche texte du PDF, TOUTES les pages.
+    const pageTexts: string[] = []
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum)
+      const content = await page.getTextContent()
+      const pageText = content.items
+        .map(item => ('str' in item ? item.str : ''))
+        .join(' ')
+      pageTexts.push(pageText)
+      onProgress(5 + Math.round((pageNum / pdf.numPages) * 15)) // 5–20%
     }
-    reader.onerror = () => resolve('[Erreur de lecture du PDF]')
-    reader.readAsText(file, 'latin1')
-  })
+
+    const combined = pageTexts.join('\n\n').replace(/[ \t]+/g, ' ').trim()
+
+    if (combined.length >= MIN_READABLE_LENGTH) {
+      onProgress(50)
+      return combined
+    }
+
+    // 2e passage (fallback) : PDF scanné sans couche texte — on convertit
+    // chaque page en image et on OCR chaque image avec Tesseract.
+    return await ocrScannedPdf(pdf, onProgress)
+  } finally {
+    await loadingTask.destroy()
+  }
+}
+
+async function ocrScannedPdf(
+  pdf: pdfjsLib.PDFDocumentProxy,
+  onProgress: (pct: number) => void,
+): Promise<string> {
+  const worker = await createWorker(['fra', 'eng'], 1)
+  try {
+    const pageTexts: string[] = []
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum)
+      const viewport = page.getViewport({ scale: 2 })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.ceil(viewport.width)
+      canvas.height = Math.ceil(viewport.height)
+
+      await page.render({ canvas, viewport }).promise
+
+      const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+      if (blob) {
+        const { data } = await worker.recognize(blob)
+        pageTexts.push(data.text)
+      }
+
+      onProgress(20 + Math.round((pageNum / pdf.numPages) * 30)) // 20–50%
+    }
+
+    onProgress(50)
+    const combined = pageTexts.join('\n\n').trim()
+    return combined.length > 0
+      ? combined
+      : '[Contenu du PDF non lisible, même après OCR — essaie avec une photo nette de chaque page]'
+  } finally {
+    await worker.terminate()
+  }
 }
 
 export function anonymize(text: string): string {

@@ -79,10 +79,21 @@ export default function Scanner() {
     }
   }
 
+  // Le scanner ne gère qu'un seul document à la fois pour l'instant : si
+  // plusieurs fichiers sont sélectionnés ou déposés, on prévient l'utilisateur
+  // au lieu d'ignorer les autres en silence.
+  const pickFirstFile = (files: FileList | null): File | null => {
+    if (!files || files.length === 0) return null
+    if (files.length > 1) {
+      toast('Un seul document à la fois pour le moment — seul le premier a été pris en compte.', { icon: '📎' })
+    }
+    return files[0]
+  }
+
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setDragging(false)
-    const f = e.dataTransfer.files[0]
+    const f = pickFirstFile(e.dataTransfer.files)
     if (f) setFileAndPreview(f)
   }, [])
 
@@ -265,7 +276,7 @@ export default function Scanner() {
               type="file"
               accept={ACCEPTED_EXT}
               className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) setFileAndPreview(f) }}
+              onChange={e => { const f = pickFirstFile(e.target.files); if (f) setFileAndPreview(f) }}
             />
 
             {file ? (
@@ -344,7 +355,7 @@ export default function Scanner() {
             accept="image/*"
             capture="environment"
             className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) setFileAndPreview(f) }}
+            onChange={e => { const f = pickFirstFile(e.target.files); if (f) setFileAndPreview(f) }}
           />
 
           {/* Bouton analyser — grand + pulsant */}
@@ -386,6 +397,13 @@ export default function Scanner() {
             <CheckCircle size={20} />
             Document analysé avec succès
           </div>
+
+          {result.texte_tronque && (
+            <div className="flex items-start gap-2 bg-warning-light text-warning text-sm rounded-xl p-3">
+              <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+              <span>Ce document est long — seule une partie a pu être analysée. Certains détails (notamment en fin de document) peuvent manquer.</span>
+            </div>
+          )}
 
           <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
