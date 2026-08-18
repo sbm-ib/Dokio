@@ -4,6 +4,11 @@ import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
+// Log visible dès le chargement du module : si tu ne vois jamais cette ligne
+// dans la console après un déploiement, c'est que le navigateur exécute
+// encore un ancien bundle JS (cache/service worker), pas ce fichier.
+console.log(`[ocr] pdf.js chargé — version ${pdfjsLib.version}, worker: ${pdfjsWorkerUrl}`)
+
 // En dessous de ce nombre de caractères utiles, on considère que le PDF n'a
 // pas de couche texte exploitable (cas d'un PDF scanné = juste une image) et
 // on bascule sur l'OCR page par page.
@@ -41,8 +46,21 @@ async function extractFromImage(file: File | Blob, onProgress: (pct: number) => 
 async function extractFromPDF(file: File, onProgress: (pct: number) => void): Promise<string> {
   onProgress(5)
   const buffer = await file.arrayBuffer()
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
-  const pdf = await loadingTask.promise
+
+  let loadingTask: pdfjsLib.PDFDocumentLoadingTask
+  let pdf: pdfjsLib.PDFDocumentProxy
+  try {
+    loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    pdf = await loadingTask.promise
+  } catch (err) {
+    // Si pdf.js échoue à s'initialiser (worker introuvable, PDF corrompu…),
+    // on log l'erreur exacte et on arrête là — on ne doit JAMAIS retomber
+    // sur un envoi d'octets bruts à l'IA.
+    console.error('[ocr] Échec du chargement pdf.js :', err)
+    throw new Error(`Impossible de charger le PDF avec pdf.js : ${err instanceof Error ? err.message : String(err)}`, { cause: err })
+  }
+
+  console.log(`[ocr] PDF ouvert — ${pdf.numPages} page(s) détectée(s)`)
 
   try {
     // 1er passage : lecture de la vraie couche texte du PDF, TOUTES les pages.
@@ -58,6 +76,7 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     }
 
     const combined = pageTexts.join('\n\n').replace(/[ \t]+/g, ' ').trim()
+    console.log(`[ocr] Texte extrait via la couche texte du PDF : ${combined.length} caractère(s)`)
 
     if (combined.length >= MIN_READABLE_LENGTH) {
       onProgress(50)
@@ -66,7 +85,11 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
 
     // 2e passage (fallback) : PDF scanné sans couche texte — on convertit
     // chaque page en image et on OCR chaque image avec Tesseract.
+    console.log('[ocr] Couche texte quasi vide — bascule sur OCR (PDF probablement scanné)')
     return await ocrScannedPdf(pdf, onProgress)
+  } catch (err) {
+    console.error('[ocr] Échec de l\'extraction PDF :', err)
+    throw err
   } finally {
     await loadingTask.destroy()
   }
@@ -93,12 +116,14 @@ async function ocrScannedPdf(
         const { data } = await worker.recognize(blob)
         pageTexts.push(data.text)
       }
+      console.log(`[ocr] OCR page ${pageNum}/${pdf.numPages} terminé`)
 
       onProgress(20 + Math.round((pageNum / pdf.numPages) * 30)) // 20–50%
     }
 
     onProgress(50)
     const combined = pageTexts.join('\n\n').trim()
+    console.log(`[ocr] Texte extrait via OCR (PDF scanné) : ${combined.length} caractère(s)`)
     return combined.length > 0
       ? combined
       : '[Contenu du PDF non lisible, même après OCR — essaie avec une photo nette de chaque page]'

@@ -12,6 +12,10 @@ export default defineConfig({
       includeAssets: ['icon.svg'],
       workbox: {
         navigateFallbackDenylist: [/^\/api\//],
+        // Purge les anciens caches précédemment précachés à chaque nouvelle
+        // version, pour ne jamais laisser traîner des fichiers d'un
+        // déploiement précédent.
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
