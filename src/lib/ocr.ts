@@ -44,6 +44,37 @@ if (!hasNativePromiseWithResolvers) {
   }
 }
 
+// page.getTextContent() (pdf.mjs, classe PDFPageProxy) consomme son
+// résultat sur le thread PRINCIPAL — pas dans le Worker, cette fois — via
+// `for await (const value of readableStream)`. Ça suppose que ReadableStream
+// soit itérable de façon asynchrone (ReadableStream.prototype[Symbol.
+// asyncIterator]), une brique des Streams API arrivée tardivement sur
+// Safari/WebKit et encore absente sur certains iPhone/iPad bloqués sur une
+// vieille version d'iOS (Safari y est lié à l'OS, impossible à mettre à jour
+// seul). Sans elle, `for await` tente d'appeler une méthode inexistante →
+// "undefined is not a function" — c'est exactement le crash observé sur
+// getTextContent() (confirmé par le suivi d'étape ajouté juste avant ce
+// fix : l'extrait Safari "...e of t..." correspond à "for await (const e of
+// t)" une fois minifié). On fournit un polyfill minimal si absent.
+const hasNativeReadableStreamAsyncIterator =
+  typeof ReadableStream !== 'undefined' && typeof ReadableStream.prototype[Symbol.asyncIterator] === 'function'
+console.log(`[ocr] ReadableStream itérable en async natif : ${hasNativeReadableStreamAsyncIterator ? 'oui' : 'non — polyfill appliqué'}`)
+if (typeof ReadableStream !== 'undefined' && !hasNativeReadableStreamAsyncIterator) {
+  ReadableStream.prototype[Symbol.asyncIterator] = function <R>(this: ReadableStream<R>): AsyncIterator<R> {
+    const reader = this.getReader()
+    return {
+      async next(): Promise<IteratorResult<R>> {
+        const { done, value } = await reader.read()
+        return done ? { done: true, value: undefined } : { done: false, value: value as R }
+      },
+      async return(value?: unknown): Promise<IteratorResult<R>> {
+        reader.releaseLock()
+        return { done: true, value: value as R }
+      },
+    }
+  }
+}
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 // Log visible dès le chargement du module : si tu ne vois jamais cette ligne
