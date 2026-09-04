@@ -160,11 +160,22 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
 
   console.log(`[ocr] PDF ouvert — ${pdf.numPages} page(s) détectée(s)`)
 
+  // Étape en cours au moment d'un crash dans le bloc ci-dessous — mise à jour
+  // juste avant chaque opération async potentiellement fragile, pour savoir
+  // EXACTEMENT laquelle plante plutôt que de deviner depuis un message
+  // générique "échec de l'extraction PDF". ocrScannedPdf() la met aussi à
+  // jour via le callback onStage : le crash peut venir aussi bien de la
+  // lecture de la couche texte ci-dessous que du pipeline OCR (rendu canvas
+  // pdf.js / reconnaissance Tesseract) plus loin.
+  let stage = 'lecture de la couche texte'
+
   try {
     // 1er passage : lecture de la vraie couche texte du PDF, TOUTES les pages.
     const pageTexts: string[] = []
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      stage = `page ${pageNum}/${pdf.numPages} : getPage`
       const page = await pdf.getPage(pageNum)
+      stage = `page ${pageNum}/${pdf.numPages} : getTextContent`
       const content = await page.getTextContent()
       const pageText = content.items
         .map(item => ('str' in item ? item.str : ''))
@@ -190,15 +201,13 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     // (filigrane d'appli de scan, page quasi vide…) — on convertit chaque
     // page en image et on OCR chaque image avec Tesseract.
     console.log('[ocr] Couche texte insuffisante — bascule OCR déclenchée (PDF probablement scanné)')
-    return await ocrScannedPdf(pdf, onProgress)
+    return await ocrScannedPdf(pdf, onProgress, (s) => { stage = s })
   } catch (err) {
     console.error('[ocr] Échec de l\'extraction PDF :', err)
     const diag = logIfMissingFunction(err)
-    if (diag) {
-      const baseMsg = err instanceof Error ? err.message : String(err)
-      throw new Error(`${baseMsg} [${diag}]`, { cause: err })
-    }
-    throw err
+    const baseMsg = err instanceof Error ? err.message : String(err)
+    const suffix = diag ? ` [${diag}]` : ''
+    throw new Error(`Échec de l'extraction PDF à l'étape "${stage}" : ${baseMsg}${suffix}`, { cause: err })
   } finally {
     await loadingTask.destroy()
   }
@@ -207,19 +216,23 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
 async function ocrScannedPdf(
   pdf: pdfjsLib.PDFDocumentProxy,
   onProgress: (pct: number) => void,
+  onStage: (stage: string) => void,
 ): Promise<string> {
   console.log(`[ocr] Bascule OCR déclenchée — rendu à l'échelle ${OCR_RENDER_SCALE}, langues fra+eng`)
   const worker = await createWorker(['fra', 'eng'], 1)
   try {
     const pageTexts: string[] = []
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      onStage(`OCR page ${pageNum}/${pdf.numPages} : getPage`)
       console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : récupération...`)
       const page = await pdf.getPage(pageNum)
 
+      onStage(`OCR page ${pageNum}/${pdf.numPages} : getViewport`)
       console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : calcul du viewport (avant getViewport)`)
       const viewport = page.getViewport({ scale: OCR_RENDER_SCALE })
       console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : viewport ${viewport.width}x${viewport.height} (après getViewport)`)
 
+      onStage(`OCR page ${pageNum}/${pdf.numPages} : création canvas`)
       const canvas = document.createElement('canvas')
       canvas.width = Math.ceil(viewport.width)
       canvas.height = Math.ceil(viewport.height)
@@ -228,6 +241,7 @@ async function ocrScannedPdf(
       // Note : on ne fait PAS canvas.getContext('2d') nous-mêmes — page.render()
       // s'en charge en interne (confirmé en lisant le code de pdfjs-dist).
       // L'appeler nous-mêmes avant créerait un conflit (context déjà pris).
+      onStage(`OCR page ${pageNum}/${pdf.numPages} : page.render()`)
       console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : appel page.render() (avant render)`)
       await page.render({ canvas, viewport }).promise
       console.log(`[ocr] Page ${pageNum}/${pdf.numPages} rendue en image ${canvas.width}x${canvas.height} (après render)`)
@@ -235,6 +249,7 @@ async function ocrScannedPdf(
       // Tesseract accepte directement un <canvas> (pas besoin de repasser
       // par un Blob intermédiaire) — un point de conversion en moins, donc
       // une source d'échec silencieux en moins.
+      onStage(`OCR page ${pageNum}/${pdf.numPages} : worker.recognize()`)
       console.log(`[ocr] Page ${pageNum}/${pdf.numPages} : envoi à Tesseract (avant recognize)`)
       const { data } = await worker.recognize(canvas)
       pageTexts.push(data.text)
