@@ -1,6 +1,20 @@
 import { getSupabaseAdmin } from '../lib/supabase-admin.js'
 import { getAuthenticatedUserId } from '../lib/auth.js'
 
+// vercel.json fixe maxDuration: 30 pour cette fonction. Avec ~38 documents
+// actifs envoyés en une seule requête à Claude, l'appel dépassait cette
+// limite et Vercel tuait la fonction en plein vol (FUNCTION_INVOCATION_TIMEOUT,
+// une page d'erreur HTML illisible pour l'utilisateur, sans réponse JSON).
+// Deux mitigations complémentaires : (1) réduire ce qu'on envoie à Claude
+// (voir selectDocumentsForRadar plus bas) pour tenir largement dans le temps
+// imparti, et (2) aborter nous-mêmes l'appel avant que Vercel ne le fasse
+// (ANTHROPIC_TIMEOUT_MS très en dessous des 30s), pour renvoyer une erreur
+// JSON propre au lieu de laisser la plateforme tuer la fonction brutalement.
+const MAX_DOCUMENTS_FOR_RADAR = 25
+const TEXT_FIELD_MAX_CHARS = 220
+const ANTHROPIC_TIMEOUT_MS = 20_000
+const MAX_RESPONSE_TOKENS = 2048
+
 function restrictForPlan(data: any, plan: string) {
   if (plan === 'premium') return data
   const lockedCounts = {
@@ -28,6 +42,8 @@ Analyse et déduis :
 4. Les ANTICIPATIONS : ce qui va logiquement arriver ensuite et quand agir si ça n'arrive pas.
 5. Les CONNEXIONS entre documents.
 
+Pour rester rapide à générer : limite chaque tableau à 5 éléments maximum (les plus importants/urgents en premier), et reste concis dans chaque champ texte libre (1 à 2 phrases).
+
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, sans balises Markdown. Format exact :
 
 {
@@ -49,6 +65,53 @@ async function step<T>(label: string, fn: () => PromiseLike<T>): Promise<T> {
     e.cause = err?.cause ?? err
     throw e
   }
+}
+
+interface RadarDocumentRow {
+  id: string
+  organisme_detecte: string | null
+  categorie: string | null
+  explication_ia: string | null
+  action_recommandee: string | null
+  date_limite: string | null
+  urgence: boolean | null
+  statut: string
+  montant_eur: number | null
+  created_at: string
+}
+
+function truncateText(text: string | null, maxChars: number): string | null {
+  if (!text || text.length <= maxChars) return text
+  return `${text.slice(0, maxChars)}…`
+}
+
+// Réduit ce qu'on envoie réellement à Claude, indépendamment du nombre total
+// de documents actifs de l'utilisateur (documents.length reste inchangé pour
+// la comparaison avec le cache radar_snapshots — seul le sous-ensemble
+// transmis au prompt est limité). On priorise ce qui compte pour un
+// "radar" : les documents urgents, puis ceux dont l'échéance est la plus
+// proche, puis les plus récents. Les champs texte libres (souvent les plus
+// gros contributeurs de tokens) sont raccourcis plutôt que supprimés, pour
+// garder le contexte utile à l'IA sans faire exploser la taille du prompt.
+function selectDocumentsForRadar(documents: RadarDocumentRow[]): RadarDocumentRow[] {
+  const sorted = [...documents].sort((a, b) => {
+    if (!!a.urgence !== !!b.urgence) return a.urgence ? -1 : 1
+    if (a.date_limite && b.date_limite) return String(a.date_limite).localeCompare(String(b.date_limite))
+    if (a.date_limite) return -1
+    if (b.date_limite) return 1
+    return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''))
+  })
+  return sorted.slice(0, MAX_DOCUMENTS_FOR_RADAR).map(d => ({
+    ...d,
+    explication_ia: truncateText(d.explication_ia, TEXT_FIELD_MAX_CHARS),
+    action_recommandee: truncateText(d.action_recommandee, TEXT_FIELD_MAX_CHARS),
+  }))
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'AbortError') return true
+  const cause = err instanceof Error ? err.cause : undefined
+  return cause instanceof Error && cause.name === 'AbortError'
 }
 
 function parseRadarJson(content: string): unknown {
@@ -143,20 +206,41 @@ export default async function handler(req: any, res: any): Promise<void> {
       return
     }
 
-    const upstream = await step('appel Claude', () => fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Documents à analyser :\n\n${JSON.stringify(documents)}` }],
-      }),
-    }))
+    const documentsForPrompt = selectDocumentsForRadar(documents)
+
+    let upstream: Response
+    const abortController = new AbortController()
+    const abortTimer = setTimeout(() => abortController.abort(), ANTHROPIC_TIMEOUT_MS)
+    try {
+      upstream = await step('appel Claude', () => fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: MAX_RESPONSE_TOKENS,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: `Documents à analyser :\n\n${JSON.stringify(documentsForPrompt)}` }],
+        }),
+        signal: abortController.signal,
+      }))
+    } catch (err: unknown) {
+      // step() enveloppe l'erreur d'origine dans e.cause — l'AbortError posé
+      // par notre propre timeout (pas celui de Vercel) s'y retrouve donc.
+      if (isAbortError(err)) {
+        console.error(`[radar] Timeout appel Claude après ${ANTHROPIC_TIMEOUT_MS}ms (${documentsForPrompt.length}/${documents.length} documents envoyés)`)
+        res.status(504).json({
+          error: `L'IA a mis trop de temps à répondre (plus de ${ANTHROPIC_TIMEOUT_MS / 1000}s). Réessaie dans quelques instants.`,
+        })
+        return
+      }
+      throw err
+    } finally {
+      clearTimeout(abortTimer)
+    }
 
     if (!upstream.ok) {
       const err = await upstream.text()
