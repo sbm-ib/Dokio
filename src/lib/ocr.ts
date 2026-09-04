@@ -60,9 +60,9 @@ const hasNativeReadableStreamAsyncIterator =
   typeof ReadableStream !== 'undefined' && typeof ReadableStream.prototype[Symbol.asyncIterator] === 'function'
 console.log(`[ocr] ReadableStream itérable en async natif : ${hasNativeReadableStreamAsyncIterator ? 'oui' : 'non — polyfill appliqué'}`)
 if (typeof ReadableStream !== 'undefined' && !hasNativeReadableStreamAsyncIterator) {
-  ReadableStream.prototype[Symbol.asyncIterator] = function <R>(this: ReadableStream<R>): AsyncIterator<R> {
+  ReadableStream.prototype[Symbol.asyncIterator] = function <R>(this: ReadableStream<R>): ReadableStreamAsyncIterator<R> {
     const reader = this.getReader()
-    return {
+    const iterator: ReadableStreamAsyncIterator<R> = {
       async next(): Promise<IteratorResult<R>> {
         const { done, value } = await reader.read()
         return done ? { done: true, value: undefined } : { done: false, value: value as R }
@@ -71,7 +71,11 @@ if (typeof ReadableStream !== 'undefined' && !hasNativeReadableStreamAsyncIterat
         reader.releaseLock()
         return { done: true, value: value as R }
       },
+      [Symbol.asyncIterator]() {
+        return iterator
+      },
     }
+    return iterator
   }
 }
 
