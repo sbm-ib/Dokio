@@ -186,8 +186,12 @@ export default function Scanner() {
       const msg = err instanceof Error ? err.message : String(err)
       const friendly = msg.includes('Gemini') ? `Erreur IA — ${msg}`
         : msg.includes('storage') ? 'Problème d\'envoi du fichier. Réessaie !'
-        : `Oups, quelque chose s\'est mal passé : ${msg}`
-      toast.error(friendly, { duration: 6000 })
+        : `Oups, quelque chose s'est mal passé : ${msg}`
+      // Duration longue + largeur augmentée : le diagnostic d'erreur (voir
+      // logIfMissingFunction dans ocr.ts) peut être assez long, et la
+      // personne doit avoir le temps de le lire ou d'en faire une capture
+      // d'écran pour nous le transmettre.
+      toast.error(friendly, { duration: 15000, style: { maxWidth: '420px' } })
       setStep('upload')
       setProgress(0)
     }

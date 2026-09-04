@@ -111,23 +111,31 @@ async function extractFromImage(file: File | Blob, onProgress: (pct: number) => 
 // n'expose JAMAIS le vrai nom, seulement un extrait du code (souvent
 // minifié) autour du crash. Dans ce cas on affiche cet extrait et on liste
 // les suspects habituels plutôt que de prétendre avoir un nom exact.
-function logIfMissingFunction(err: unknown): void {
+//
+// Retourne aussi ce diagnostic en texte (au lieu de seulement le logger) :
+// on n'a pas toujours accès à la console du navigateur de la personne qui
+// rencontre le bug (Safari mobile, PWA installée…), donc on le renvoie pour
+// pouvoir l'afficher directement dans le message d'erreur montré à l'écran.
+function logIfMissingFunction(err: unknown): string | null {
   const message = err instanceof Error ? err.message : String(err)
 
   const namedMatch = message.match(/([\w.]+) is not a function/)
   if (namedMatch && namedMatch[1] !== 'undefined') {
-    console.error(`[ocr] Fonction manquante détectée : "${namedMatch[1]}" — probablement une API non supportée par ce navigateur.`)
-    return
+    const diag = `Fonction manquante : "${namedMatch[1]}" — probablement une API non supportée par ce navigateur.`
+    console.error(`[ocr] ${diag}`)
+    return diag
   }
 
   const safariMatch = message.match(/is not a function \(near '([^']*)'\)/)
   if (safariMatch) {
-    console.error(
-      `[ocr] Erreur de type "fonction manquante" détectée (format Safari — le nom exact n'est pas fourni par ce navigateur). ` +
-      `Extrait du code au moment du crash : "${safariMatch[1]}". ` +
-      'Suspects habituels sur ce chemin : Promise.withResolvers, structuredClone, Object.hasOwn, OffscreenCanvas, ImageDecoder.',
-    )
+    const diag = `Erreur "fonction manquante" (format Safari — nom exact non fourni par ce navigateur). ` +
+      `Extrait du code au crash : "${safariMatch[1]}". ` +
+      'Suspects habituels : Promise.withResolvers, structuredClone, Object.hasOwn, OffscreenCanvas, ImageDecoder.'
+    console.error(`[ocr] ${diag}`)
+    return diag
   }
+
+  return null
 }
 
 async function extractFromPDF(file: File, onProgress: (pct: number) => void): Promise<string> {
@@ -144,8 +152,10 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     // on log l'erreur exacte et on arrête là — on ne doit JAMAIS retomber
     // sur un envoi d'octets bruts à l'IA.
     console.error('[ocr] Échec du chargement pdf.js :', err)
-    logIfMissingFunction(err)
-    throw new Error(`Impossible de charger le PDF avec pdf.js : ${err instanceof Error ? err.message : String(err)}`, { cause: err })
+    const diag = logIfMissingFunction(err)
+    const baseMsg = err instanceof Error ? err.message : String(err)
+    const suffix = diag ? ` [${diag}] [polyfill principal: ${hasNativePromiseWithResolvers ? 'non appliqué (natif)' : 'appliqué'}]` : ''
+    throw new Error(`Impossible de charger le PDF avec pdf.js : ${baseMsg}${suffix}`, { cause: err })
   }
 
   console.log(`[ocr] PDF ouvert — ${pdf.numPages} page(s) détectée(s)`)
@@ -183,7 +193,11 @@ async function extractFromPDF(file: File, onProgress: (pct: number) => void): Pr
     return await ocrScannedPdf(pdf, onProgress)
   } catch (err) {
     console.error('[ocr] Échec de l\'extraction PDF :', err)
-    logIfMissingFunction(err)
+    const diag = logIfMissingFunction(err)
+    if (diag) {
+      const baseMsg = err instanceof Error ? err.message : String(err)
+      throw new Error(`${baseMsg} [${diag}]`, { cause: err })
+    }
     throw err
   } finally {
     await loadingTask.destroy()
@@ -252,7 +266,7 @@ export function anonymize(text: string): string {
     // IBAN belge (BE) et français (FR) et international
     .replace(/\b(?:BE|FR|LU|NL|DE)\d{2}[\s]?(?:\d{4}[\s]?){3,7}\d{0,4}\b/gi, '[IBAN]')
     // Numéro registre national belge (11 chiffres : JJ.MM.AA-XXX.YY)
-    .replace(/\b\d{2}[.\-]\d{2}[.\-]\d{2}[.\-]\d{3}[.\-]\d{2}\b/g, '[NRBE]')
+    .replace(/\b\d{2}[.-]\d{2}[.-]\d{2}[.-]\d{3}[.-]\d{2}\b/g, '[NRBE]')
     // Numéro de sécurité sociale français (13 chiffres)
     .replace(/\b[12]\s?\d{2}\s?\d{2}\s?\d{2,3}\s?\d{3}\s?\d{3}\s?\d{2}\b/g, '[SECU]')
     // Numéros de téléphone belges (+32) et français (+33)
