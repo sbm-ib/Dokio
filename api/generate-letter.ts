@@ -120,7 +120,13 @@ export default async function handler(req: any, res: any): Promise<void> {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        // Opus (pas Haiku, contrairement à api/analyze.ts et api/radar.ts) :
+        // la précision administrative/légale d'un courrier a un impact
+        // concret, et le volume est déjà borné par USAGE_CONFIG — le coût
+        // d'Opus est justifié ici spécifiquement. max_tokens reste à 3000,
+        // largement sous le seuil (~16k) au-delà duquel Opus exige le
+        // streaming pour éviter un timeout HTTP côté SDK/client.
+        model: 'claude-opus-4-8',
         max_tokens: 3000,
         system: SYSTEM_PROMPT,
         messages: [{

@@ -26,6 +26,9 @@
     },
     "api/send-reminders.ts": {
       "maxDuration": 30
+    },
+    "api/chat-courrier.ts": {
+      "maxDuration": 60
     }
   }
 }

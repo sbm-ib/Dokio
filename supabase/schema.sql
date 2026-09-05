@@ -101,6 +101,22 @@ CREATE TABLE IF NOT EXISTS public.courriers (
 -- ALTER TABLE public.courriers ADD COLUMN IF NOT EXISTS conseils_envoi text;
 -- ALTER TABLE public.courriers ADD COLUMN IF NOT EXISTS champs_a_completer jsonb;
 
+-- ── Table conversations_courrier ──
+-- Chat par document pour expliquer le document et affiner un courrier de
+-- réponse en discutant (api/chat-courrier.ts). Une seule conversation par
+-- document (v1 volontairement limitée à ce périmètre, pas de chat global
+-- "tous mes documents") — d'où la contrainte unique (user_id, document_id).
+CREATE TABLE IF NOT EXISTS public.conversations_courrier (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  document_id         uuid NOT NULL REFERENCES public.documents(id) ON DELETE CASCADE,
+  messages            jsonb NOT NULL DEFAULT '[]'::jsonb,
+  lettre_courante      jsonb,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, document_id)
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
@@ -110,6 +126,7 @@ ALTER TABLE public.documents      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.courriers      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rappels        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.radar_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversations_courrier ENABLE ROW LEVEL SECURITY;
 
 -- Profiles : un user ne voit que son propre profil
 CREATE POLICY "profiles: lecture propre"  ON public.profiles FOR SELECT USING (auth.uid() = id);
