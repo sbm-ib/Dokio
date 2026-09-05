@@ -1,18 +1,22 @@
 import { getSupabaseAdmin } from '../lib/supabase-admin.js'
 import { getAuthenticatedUserId } from '../lib/auth.js'
 
-// vercel.json fixe maxDuration: 30 pour cette fonction. Avec ~38 documents
-// actifs envoyés en une seule requête à Claude, l'appel dépassait cette
-// limite et Vercel tuait la fonction en plein vol (FUNCTION_INVOCATION_TIMEOUT,
+// vercel.json fixe maxDuration: 60 pour cette fonction (Fluid Compute actif
+// sur ce projet, donc ce plafond est supporté). Avec ~25-38 documents actifs
+// envoyés en une seule requête à Claude, l'appel dépassait l'ancienne limite
+// de 30s et Vercel tuait la fonction en plein vol (FUNCTION_INVOCATION_TIMEOUT,
 // une page d'erreur HTML illisible pour l'utilisateur, sans réponse JSON).
-// Deux mitigations complémentaires : (1) réduire ce qu'on envoie à Claude
-// (voir selectDocumentsForRadar plus bas) pour tenir largement dans le temps
-// imparti, et (2) aborter nous-mêmes l'appel avant que Vercel ne le fasse
-// (ANTHROPIC_TIMEOUT_MS très en dessous des 30s), pour renvoyer une erreur
-// JSON propre au lieu de laisser la plateforme tuer la fonction brutalement.
+// Le contenu envoyé est déjà réduit au strict nécessaire (voir
+// selectDocumentsForRadar plus bas) — l'appel à Claude reste structurellement
+// lent avec ~25 documents, donc on augmente plutôt le temps disponible que
+// de re-réduire le contenu (au risque de retomber sur la troncature JSON
+// corrigée par MAX_RESPONSE_TOKENS ci-dessous). ANTHROPIC_TIMEOUT_MS garde
+// une marge de sécurité sous les 60s de vercel.json pour qu'on ait toujours
+// le temps d'aborter nous-mêmes l'appel et de renvoyer une erreur JSON
+// propre avant que la plateforme ne tue la fonction brutalement.
 const MAX_DOCUMENTS_FOR_RADAR = 25
 const TEXT_FIELD_MAX_CHARS = 220
-const ANTHROPIC_TIMEOUT_MS = 20_000
+const ANTHROPIC_TIMEOUT_MS = 45_000
 // 2048 (valeur du fix précédent) s'est révélé trop juste : avec le schéma
 // actuel (6 sections, jusqu'à 5 éléments chacune), Claude se faisait couper
 // en plein milieu d'un tableau avant la fin du JSON — d'où l'erreur cryptique

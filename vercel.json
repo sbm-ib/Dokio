@@ -19,7 +19,7 @@
       "maxDuration": 30
     },
     "api/radar.ts": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "api/generate-letter.ts": {
       "maxDuration": 30
