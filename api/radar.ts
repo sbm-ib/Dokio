@@ -13,7 +13,16 @@ import { getAuthenticatedUserId } from '../lib/auth.js'
 const MAX_DOCUMENTS_FOR_RADAR = 25
 const TEXT_FIELD_MAX_CHARS = 220
 const ANTHROPIC_TIMEOUT_MS = 20_000
-const MAX_RESPONSE_TOKENS = 2048
+// 2048 (valeur du fix précédent) s'est révélé trop juste : avec le schéma
+// actuel (6 sections, jusqu'à 5 éléments chacune), Claude se faisait couper
+// en plein milieu d'un tableau avant la fin du JSON — d'où l'erreur cryptique
+// "Expected ',' or ']' after array element". 3500 laisse une marge
+// confortable pour ce schéma (estimé ~2000 tokens dans le pire cas) tout en
+// restant net en dessous des ~4096 d'origine qui avaient causé le timeout
+// Vercel. Si le risque de timeout redevient réel, le prochain levier est
+// MAX_DOCUMENTS_FOR_RADAR ou le cap de 5 éléments/tableau du prompt
+// système — pas ce budget de tokens de sortie.
+const MAX_RESPONSE_TOKENS = 3500
 
 function restrictForPlan(data: any, plan: string) {
   if (plan === 'premium') return data
@@ -251,6 +260,17 @@ export default async function handler(req: any, res: any): Promise<void> {
 
     const upstreamData: any = await upstream.json()
     const content: string = upstreamData?.content?.[0]?.text ?? ''
+
+    // stop_reason === 'max_tokens' veut dire que Claude a été coupé avant la
+    // fin de sa réponse (JSON incomplet, forcément invalide) — un problème de
+    // budget de tokens, pas de contenu. Le signaler explicitement plutôt que
+    // de laisser JSON.parse produire un message cryptique ("Expected ',' or
+    // ']' after array element") qui ne dit rien d'utile à l'utilisateur.
+    if (upstreamData?.stop_reason === 'max_tokens') {
+      console.error(`[radar] Réponse Claude coupée (max_tokens, ${MAX_RESPONSE_TOKENS} max) — ${documentsForPrompt.length}/${documents.length} documents envoyés, ${content.length} caractères reçus`)
+      res.status(500).json({ error: "La réponse de l'IA a été coupée avant la fin (trop longue) — réessaie." })
+      return
+    }
 
     let radarData: unknown
     try {
