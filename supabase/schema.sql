@@ -157,6 +157,12 @@ CREATE POLICY "courriers: insertion"      ON public.courriers FOR INSERT WITH CH
 CREATE POLICY "courriers: mise à jour"    ON public.courriers FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "courriers: suppression"    ON public.courriers FOR DELETE USING (auth.uid() = user_id);
 
+-- Conversations courrier : un user ne voit/modifie que ses propres conversations
+CREATE POLICY "conversations_courrier: lecture propre" ON public.conversations_courrier FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "conversations_courrier: insertion"      ON public.conversations_courrier FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "conversations_courrier: mise à jour"    ON public.conversations_courrier FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "conversations_courrier: suppression"    ON public.conversations_courrier FOR DELETE USING (auth.uid() = user_id);
+
 -- ============================================================
 -- TRIGGER : créer un profil automatiquement après inscription
 -- ============================================================
