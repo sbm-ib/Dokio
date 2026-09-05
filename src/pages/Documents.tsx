@@ -6,7 +6,7 @@ import {
   CATEGORIE_LABELS, CATEGORIE_COLORS, STATUT_COLORS, STATUT_LABELS,
   getDaysUntil, deadlineColor, formatDateShort,
 } from '../lib/utils'
-import ChatCourrierModal from '../components/ChatCourrierModal'
+import GenerateLetterModal from '../components/GenerateLetterModal'
 import type { Document } from '../types'
 import toast from 'react-hot-toast'
 
@@ -194,7 +194,7 @@ export default function Documents() {
       )}
 
       {letterDoc && (
-        <ChatCourrierModal doc={letterDoc} onClose={() => setLetterDoc(null)} />
+        <GenerateLetterModal doc={letterDoc} onClose={() => setLetterDoc(null)} />
       )}
     </div>
   )

@@ -9,6 +9,7 @@ import Documents from './pages/Documents'
 import Scanner from './pages/Scanner'
 import Profile from './pages/Profile'
 import Courriers from './pages/Courriers'
+import Kio from './pages/Kio'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -39,6 +40,7 @@ function AppRoutes() {
           <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
           <Route path="/courriers" element={<ProtectedRoute><Courriers /></ProtectedRoute>} />
           <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
+          <Route path="/kio" element={<ProtectedRoute><Kio /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
